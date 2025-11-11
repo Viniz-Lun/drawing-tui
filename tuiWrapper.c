@@ -31,6 +31,7 @@ void delete_window(Win *win){
 
 Win *create_Win(int posy, int posx, int height, int width){
 	WINDOW *windowPtr = newwin(height, width, posy, posx); 
+
 	if ( windowPtr == NULL ) return NULL;
 
 	Win *win = (Win*) malloc(sizeof(Win));

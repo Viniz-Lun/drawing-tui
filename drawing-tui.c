@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "list.h"
 #include "tuiWrapper.h"
 
 #define ESC 27
@@ -45,13 +46,16 @@ int numOptions = 7;
 char toPrint[MAXINPUT] = {0};
 int skip, cancel;
 Win baseScr;
+WinList allWins = NULL;
 
 void init(){
 	initscr();
 	cbreak();
 	noecho();
 	set_escdelay(50);
-
+	
+	allWins = append( &baseScr, allWins );
+	
 	defaultBorder.size = 1;
 	defaultBorder.bottom = ACS_HLINE;
 	defaultBorder.top = ACS_HLINE;
@@ -106,23 +110,24 @@ void update_hud(){
 
 // void posaddstr(Win window, char *string, POSITION pos){}
 
-void setup_menu_popup(Win window, char *title, SIDE title_centering, char **options, int numOptions, SIDE text_centering){
+void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **options, int numOptions, SIDE text_centering){
 	int y, x;
+	window->borderSize = 1;
 	
 	if(options != NULL){
-		numOptions = (numOptions > window.lines - window.borderSize*2)? window.lines - window.borderSize*2 : numOptions;
+		numOptions = (numOptions > window->lines - window->borderSize*2)? window->lines - window->borderSize*2 : numOptions;
 		for (int i = 0; i < numOptions; i++){
-			y = i + window.borderSize;
-			x = get_xpos_for_string_window(window, options[i], text_centering, 0);
+			y = i + window->borderSize;
+			x = get_xpos_for_string_window(*window, options[i], text_centering, 0);
 
-			mvwhline(window.ptr, y, 0, ' ', window.cols);
-			mvwaddnstr(window.ptr, y, x, options[i], window.cols - window.borderSize * 2);
+			mvwhline(window->ptr, y, 0, ' ', window->cols);
+			mvwaddnstr(window->ptr, y, x, options[i], window->cols - window->borderSize * 2);
 		}
 	}
-	box(window.ptr, 0,0);
+	box(window->ptr, 0,0);
 
-	x = get_xpos_for_string_window(window, title, title_centering, 0);
-	mvwaddstr(window.ptr, 0, x, title);
+	x = get_xpos_for_string_window(*window, title, title_centering, 0);
+	mvwaddstr(window->ptr, 0, x, title);
 }
 
 
@@ -161,13 +166,13 @@ void print_input_menu(int posy, int posx, int width, WinBorder border, char* pri
 	return;
 }
 
-int save_drawing_to_file(Win window, char *file_name){
+int save_drawing_to_file(Win *window, char *file_name){
 	
 	int fd;
 	chtype *buffer;
 	char stringExitMsg[32];
 	
-	buffer = (chtype*) malloc(window.cols * sizeof(chtype) +1);
+	buffer = (chtype*) malloc(window->cols * sizeof(chtype) +1);
 	
 	fd = open(file_name, O_WRONLY | O_CREAT, 0644);
 	if (fd < 0){
@@ -178,21 +183,21 @@ int save_drawing_to_file(Win window, char *file_name){
 		free(buffer);
 		return 1;
 	}
-	for(int i = 0; i < window.lines; i++){
-		mvwinchstr(window.ptr, i, 0, buffer);
-		write(fd, buffer, sizeof(chtype) * window.cols);
+	for(int i = 0; i < window->lines; i++){
+		mvwinchstr(window->ptr, i, 0, buffer);
+		write(fd, buffer, sizeof(chtype) * window->cols);
 		*buffer = '\n';
 		write(fd, buffer, sizeof(chtype));
 	}
 	free(buffer);
 	close(fd);
-	sprintf(stringExitMsg, " Done saving file, size: %lu ", window.cols * window.lines * sizeof(char) + sizeof(char) * window.lines );
+	sprintf(stringExitMsg, " Done saving file, size: %lu ", window->cols * window->lines * sizeof(char) + sizeof(char) * window->lines );
 	mvaddstr(0, 0, stringExitMsg);
 	refresh();
 	return 0;
 }
 
-int load_image_from_file(Win window, char *file_name){
+int load_image_from_file(Win *window, char *file_name){
 	int fd;
 	int i, o, nread, len;
 	char stringExitMsg[32];
@@ -209,10 +214,10 @@ int load_image_from_file(Win window, char *file_name){
 	len = strlen(file_name);
 	if (isCurse(file_name, len)){
 		chtype *chtypeBuffer;
-		chtypeBuffer = (chtype*) malloc(window.cols * sizeof(chtype) +1);
+		chtypeBuffer = (chtype*) malloc(window->cols * sizeof(chtype) +1);
 		
-		for(i = 0; i < window.lines; i++){
-			for(o = 0; o < window.cols + 1; o++){
+		for(i = 0; i < window->lines; i++){
+			for(o = 0; o < window->cols + 1; o++){
 				nread = read(fd,&chtypeBuffer[o], sizeof(chtype));
 				if ((chtypeBuffer[o] & A_CHARTEXT) == '\n' || nread <= 0){
 					break;
@@ -220,7 +225,7 @@ int load_image_from_file(Win window, char *file_name){
 			}
 			if (nread >= 0) {
 				chtypeBuffer[o] = 0;
-				mvwaddchnstr(window.ptr, i, 0, chtypeBuffer, o);
+				mvwaddchnstr(window->ptr, i, 0, chtypeBuffer, o);
 			}
 			if (nread <= 0) break;
 		}
@@ -229,10 +234,10 @@ int load_image_from_file(Win window, char *file_name){
 	}
 	else{
 		char *charBuffer;
-		charBuffer = (char*) malloc(window.cols * sizeof(char) +1);
+		charBuffer = (char*) malloc(window->cols * sizeof(char) +1);
 		
-		for(i = 0; i < window.lines; i++){
-			for(o = 0; o < window.cols + 1; o++){
+		for(i = 0; i < window->lines; i++){
+			for(o = 0; o < window->cols + 1; o++){
 				nread = read(fd, &charBuffer[o], sizeof(char));
 				if (charBuffer[o] == '\n' || nread <= 0){
 					break;
@@ -240,7 +245,7 @@ int load_image_from_file(Win window, char *file_name){
 			}
 			if (nread >= 0) {
 				charBuffer[o] = 0;
-				mvwaddnstr(window.ptr, i, 0, charBuffer, o);
+				mvwaddnstr(window->ptr, i, 0, charBuffer, o);
 			}
 			if (nread <= 0) break;
 		}
@@ -252,7 +257,7 @@ int load_image_from_file(Win window, char *file_name){
 
 	if (nread >= 0) {
 		sprintf(stringExitMsg, " Done loading file: %s ", file_name);
-		touchwin(window.ptr);
+		touchwin(window->ptr);
 	}
 	else {
 		sprintf(stringExitMsg, "Error reading from file");
@@ -265,19 +270,19 @@ int load_image_from_file(Win window, char *file_name){
 }
 
 
-void highlight_menu_line(Win window, int lineNum, bool highlight){
+void highlight_menu_line(Win* window, int lineNum, bool highlight){
 	chtype* buffer;
 	int x, y, size;
 
-	buffer = (chtype*) malloc(window.cols * sizeof(chtype) +1);
+	buffer = (chtype*) malloc(window->cols * sizeof(chtype) +1);
 
 	curs_set(0);
 
-	x = window.borderSize;
-	y = lineNum + window.borderSize;
-	size = window.cols - window.borderSize * 2;
+	x = window->borderSize;
+	y = lineNum + window->borderSize;
+	size = window->cols - window->borderSize * 2;
 
-	mvwinchnstr(window.ptr, y, x, buffer, size);
+	mvwinchnstr(window->ptr, y, x, buffer, size);
 	if(highlight){
 		for(int i = 0; i < size; i++){
 			buffer[i] = buffer[i] | A_REVERSE;
@@ -289,14 +294,14 @@ void highlight_menu_line(Win window, int lineNum, bool highlight){
 		}
 	}
 
-	mvwaddchnstr(window.ptr, y, x, buffer, size);
+	mvwaddchnstr(window->ptr, y, x, buffer, size);
 
 	free(buffer);
-	wrefresh(window.ptr);
+	wrefresh(window->ptr);
 	return;
 }
 
-int handle_enter(Win window,int optNum){
+int handle_enter(Win *window,int optNum){
 	int fd;
 	char file_name[MAXINPUT] = {0};
 	int posy, posx;
@@ -317,8 +322,8 @@ int handle_enter(Win window,int optNum){
 			update_hud();
 			break;
 		case 2:
-			if (getattrs(window.ptr) & A_REVERSE) wattroff(window.ptr, A_REVERSE);
-			else wattron(window.ptr, A_REVERSE);
+			if (getattrs(window->ptr) & A_REVERSE) wattroff(window->ptr, A_REVERSE);
+			else wattron(window->ptr, A_REVERSE);
 			break;
 		case 4:
 			print_input_menu(posy, posx, maxChars + 2, defaultBorder,
@@ -344,6 +349,7 @@ int handle_enter(Win window,int optNum){
 			}
 			break;
 		case 6:
+			free_list(allWins);
 			endwin();
 			exit(0);
 			break;
@@ -357,35 +363,45 @@ int main(int argc, char **argv){
 	int inp;
 	int drawFocus;
 	int highlight;
-	Win popupWin, drawWin;
+	Win *popupWin, *drawWin;
 
 	/* initialize curses */
 
 	init();
 
 	//initialize drawWin
-	drawWin.cols = COLS - 2;
-	drawWin.lines = LINES - 2;
-	drawWin.xpos = 1;
-	drawWin.ypos = 1;
-	drawWin.borderSize = 0;
-	drawWin.ptr = newwin(drawWin.lines, drawWin.cols, drawWin.xpos, drawWin.ypos);
+	//drawWin.cols = COLS - 2;
+	//drawWin.lines = LINES - 2;
+	//drawWin.xpos = 1;
+	//drawWin.ypos = 1;
+	//drawWin.borderSize = 0;
+	//drawWin.ptr = newwin(drawWin.lines, drawWin.cols, drawWin.xpos, drawWin.ypos);
+	drawWin = create_Win(1, 1, LINES - 2, COLS - 2);
+
+	if ( drawWin != NULL ) allWins = append(drawWin, allWins);
 
 	//initialize popupWin
-	popupWin.cols = 40;
-	popupWin.lines = 10;
-	popupWin.xpos = COLS/2 - (popupWin.cols/2);
-	popupWin.ypos = LINES/2 - (popupWin.lines/2);
-	popupWin.borderSize = 1;
-	popupWin.ptr = newwin(popupWin.lines, popupWin.cols, popupWin.ypos, popupWin.xpos);
+	//popupWin.cols = 40;
+	//popupWin.lines = 10;
+	//popupWin.xpos = COLS/2 - (popupWin.cols/2);
+	//popupWin.ypos = LINES/2 - (popupWin.lines/2);
+	//popupWin.borderSize = 1;
+	//popupWin.ptr = newwin(popupWin.lines, popupWin.cols, popupWin.ypos, popupWin.xpos);
+	int posy, posx;
+	posy = LINES/2 - 5;
+	posx = COLS/2 - 20;
+	popupWin = create_Win( posy, posx, 10, 40 );
+
+	if ( popupWin != NULL ) allWins = append(popupWin, allWins);
+
 	
 	//keypad(stdscr, 1);
 	keypad(stdscr, 1);
-	keypad(drawWin.ptr, 1);
-	keypad(popupWin.ptr, 1);
+	keypad(drawWin->ptr, 1);
+	keypad(popupWin->ptr, 1);
 
-	starty = drawWin.lines / 2;
-	startx = drawWin.cols / 2;
+	starty = drawWin->lines / 2;
+	startx = drawWin->cols / 2;
 	dy = starty;
 	dx = startx;
 
@@ -399,17 +415,15 @@ int main(int argc, char **argv){
 	box(stdscr,0,0);
 	update_hud();
 	
-	wmove(drawWin.ptr, starty, startx);
+	wmove(drawWin->ptr, starty, startx);
 	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
 
-	move_Win(&popupWin, 10, 10);
-
 	
-	while( (inp = (drawFocus)? wgetch(drawWin.ptr) : wgetch(popupWin.ptr)) && inp != KEY_F(1) ){
+	while( (inp = (drawFocus)? wgetch(drawWin->ptr) : wgetch(popupWin->ptr)) && inp != KEY_F(1) ){
 		if(drawFocus){
 			switch(inp){
 				case KEY_F(2):
-					touchwin(popupWin.ptr);
+					touchwin(popupWin->ptr);
 					highlight_menu_line(popupWin, highlight, false);
 					drawFocus = 0;
 					highlight_menu_line(popupWin, highlight, true);
@@ -418,13 +432,13 @@ int main(int argc, char **argv){
 					if (dx > 0) --dx;
 					break;
 				case KEY_RIGHT:
-					if (dx < drawWin.cols - 1) ++dx;
+					if (dx < drawWin->cols - 1) ++dx;
 					break;
 				case KEY_UP:
 					if (dy > 0) --dy;
 					break;
 				case KEY_DOWN:
-					if (dy < drawWin.lines - 1) ++dy;
+					if (dy < drawWin->lines - 1) ++dy;
 					break;
 				case 27:
 					skip = !skip;
@@ -442,12 +456,12 @@ int main(int argc, char **argv){
 			update_hud();
 			if( (inp == KEY_ENTER) || (drawFocus && !skip) ){
 				if(cancel){
-					mvwaddchstr(drawWin.ptr, dy, dx , emptyChar); 
+					mvwaddchstr(drawWin->ptr, dy, dx , emptyChar); 
 				}
-				else mvwaddstr(drawWin.ptr, dy, dx , toPrint);
-				wrefresh(drawWin.ptr);
+				else mvwaddstr(drawWin->ptr, dy, dx , toPrint);
+				wrefresh(drawWin->ptr);
 			}
-			wmove(drawWin.ptr, dy, dx);
+			wmove(drawWin->ptr, dy, dx);
 		}
 		else{
 			//MENU navigation
@@ -468,9 +482,9 @@ int main(int argc, char **argv){
 					if (handle_enter(drawWin, highlight) == 0) break;
 				case 27: 
 					drawFocus = 1;
-					touchwin(drawWin.ptr);
-					wrefresh(drawWin.ptr);
-					wmove(drawWin.ptr, dy, dx);
+					touchwin(drawWin->ptr);
+					wrefresh(drawWin->ptr);
+					wmove(drawWin->ptr, dy, dx);
 					curs_set(1);
 					break;
 				default :
@@ -478,7 +492,7 @@ int main(int argc, char **argv){
 			}
 		}
 	} 
-	
+	free_list(allWins);
 	endwin();
 	
 	return 0;

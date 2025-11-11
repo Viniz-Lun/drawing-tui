@@ -1,7 +1,4 @@
 #include "list.h"
-#ifndef NULL
-	#define NULL (void*)0
-#endif
 
 WinList emptyList() { return NULL; }
 
@@ -31,22 +28,23 @@ WinList cons(Win* element, WinList list) {
 WinList append(Win* win, WinList list){
 	WinList tempList = list;
 	WinList newElement;
+	WinList result = list;
 
 	newElement = (WinList) malloc(sizeof(WinListElement));
 	newElement->head = win;
 	newElement->tail = emptyList();
 
 	if ( ! is_empty(tempList) ){
-		while ( ! is_empty(tempList) ){
+		while ( ! is_empty(tempList->tail) ){
 			tempList = tempList->tail;
 		}
 		tempList->tail = newElement;
 	}
 	else {
-		list = newElement;
+		result = newElement;
 	}
-
-	return list;
+	
+	return result;
 }
 
 WinList append_list(WinList dest, WinList src){

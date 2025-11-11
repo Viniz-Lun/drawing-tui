@@ -26,4 +26,7 @@ WinList cons(Win* win, WinList list);
 WinList append(Win* win, WinList list);
 
 WinList append_list(WinList dest, WinList list);
+
+void free_list(WinList list);
+
 #endif

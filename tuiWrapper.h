@@ -3,7 +3,6 @@
 #define TUIWRAPPER_H
 
 #include <curses.h>
-#include <stdlib.h>
 #include <string.h>
 #include "list.h"
 
@@ -33,7 +32,7 @@ typedef struct {
 } WinBorder;
 
 extern WinBorder defaultBorder;
-extern WinList AllWins;
+extern WinList allWins;
 
 struct Win{
 	WINDOW *ptr;
