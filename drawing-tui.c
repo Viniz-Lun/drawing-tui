@@ -18,6 +18,7 @@ typedef enum {
 	NORMAL,
 	SELECT,
 	VISUAL,
+	STICKY,
 } MODE;
 
 typedef struct {
@@ -35,7 +36,7 @@ char *options[] = {
 	"Set String",
 	"Set color pair",
 	"Toggle reverse",
-	"Toggle automatic insert",
+	"Toggle Sticky mode",
 	"Load Image from file",
 	"Save Image",
 	"Quit without Saving",
@@ -79,6 +80,7 @@ void init(){
 }
 
 MODE get_mode(MODE curr_mode, int key ){
+	if ( curr_mode == STICKY ) return STICKY;
 	switch(key){
 		case ESC:
 			return NORMAL;
@@ -95,18 +97,47 @@ MODE get_mode(MODE curr_mode, int key ){
 	}
 }
 
+void get_mode_nstring(char* dest, MODE mode, int maxlen){
+	switch(mode){
+		case NORMAL:
+			strncpy(dest, "NORMAL",maxlen);
+			break;
+		case INSERT:
+			strncpy(dest, "INSERT",maxlen);
+			break;
+		case SELECT:
+			strncpy(dest, "SELECT",maxlen);
+			break;
+		case DELETE:
+			strncpy(dest, "DELETE",maxlen);
+			break;
+		case VISUAL:
+			strncpy(dest, "VISUAL",maxlen);
+			break;
+		case STICKY:
+			strncpy(dest, "STICKY", maxlen);
+			break;
+		default:
+			strncpy(dest, "NORMAL",maxlen);
+			break;
+	}
+}
+
 void update_hud(){
 	char string[MAXINPUT];
+	char modeString[8];
 
 	mvhline(LINES - 1, 1, ACS_HLINE, COLS - 2);
 
-	strncpy(string, " Press F1 to quit ", MAXINPUT);
+	strncpy(string, " PALLETTE:  ", MAXINPUT);
 	mvaddstr(LINES - 1, get_xpos_for_string_window(baseScr, string, SIDE_LEFT, 1), string);
+	mvaddch( LINES - 1, get_xpos_for_string_size(LINES, "", SIDE_LEFT, strlen(string) - 1), ' ' | currentState.chMask );
 
 	sprintf(string, " Brush: '%s' ", currentState.toPrint);
-	mvaddstr(LINES - 1, get_xpos_for_string_size(COLS, string, SIDE_CENTER, 1), string);
+	mvaddstr(LINES - 1, get_xpos_for_string_size(COLS, string, SIDE_CENTER, 0), string);
 
-	sprintf(string, " %s ", ( currentState.mode == NORMAL )? "NORMAL": (currentState.mode == DELETE)? "DELETE": "INSERT");
+	get_mode_nstring(modeString, currentState.mode, 7);
+	sprintf(string, "[ %s ]", modeString);
 	//sprintf(string, " SKIP: [%c] DELETE: [%c] ", (skip)? 'x': ' ', (cancel)? 'x':' ' );
 	mvaddstr(LINES - 1, get_xpos_for_string_size(COLS, string, SIDE_RIGHT, 1), string);
 	refresh();
@@ -330,6 +361,9 @@ int handle_enter(Win *window,int optNum){
 			else currentState.chMask = currentState.chMask | A_REVERSE;
 			wattrset(window->ptr, currentState.chMask);
 			break;
+		case 3:
+			currentState.mode = (currentState.mode == STICKY)? NORMAL : STICKY;
+			break;
 		case 4:
 			print_input_menu(posy, posx, maxChars + 2, defaultBorder,
 					"Insert file name (current directory):", "Esc to cancel");
@@ -412,7 +446,6 @@ int main(int argc, char **argv){
 	wmove(drawWin->ptr, starty, startx);
 	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
 
-	
 	while( (inp = (currentState.focus == 0)? wgetch(drawWin->ptr) : wgetch(popupWin->ptr)) && inp != KEY_F(1) ){
 		if(currentState.focus == 0){
 			switch(inp){
@@ -438,19 +471,21 @@ int main(int argc, char **argv){
 				case ESC:
 				case KEY_BACKSPACE:
 					currentState.mode = get_mode(currentState.mode, inp);
-					break;
 				default :
 					if(inp >= 32 && inp <=136){
 						currentState.toPrint[0] = inp;
 						currentState.toPrint[1] = 0;
 					}
+					update_hud();
+					break;
 			}
-			update_hud();
 			if( currentState.mode != NORMAL ){
-				if(currentState.mode == DELETE){
+				if( currentState.mode == DELETE || ( currentState.mode == STICKY && inp == KEY_BACKSPACE ) ){
 					mvwaddchstr(drawWin->ptr, dy, dx , emptyChar); 
 				}
-				else mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
+				else{
+					if( currentState.mode == INSERT || (currentState.mode == STICKY && inp == ENTER) ) mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
+				}
 				wrefresh(drawWin->ptr);
 			}
 			wmove(drawWin->ptr, dy, dx);
@@ -471,7 +506,10 @@ int main(int argc, char **argv){
 					highlight_menu_line(popupWin, highlight,true);
 					break;
 				case ENTER:
-					if (handle_enter(drawWin, highlight) == 0) break;
+					if (handle_enter(drawWin, highlight) == 0){
+						update_hud();
+						break;
+					}
 				case ESC: 
 					currentState.focus = 0;
 					touchwin(drawWin->ptr);

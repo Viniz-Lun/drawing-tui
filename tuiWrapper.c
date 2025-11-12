@@ -108,7 +108,7 @@ int get_xpos_for_string_size(int width, char *string, SIDE side, int offset){
 			x =  width/2 - strlen(string)/2 + offset;
 			break;
 		case SIDE_RIGHT:
-			x = width- offset - 1 - strlen(string) + offset;
+			x = width - offset - 1 - strlen(string);
 			break;
 	}
 	return x;
