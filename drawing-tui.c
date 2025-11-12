@@ -10,6 +10,7 @@
 #include "tuiWrapper.h"
 
 #define ESC 27
+#define ENTER 10
 
 typedef enum {
 	INSERT,
@@ -22,14 +23,13 @@ typedef enum {
 typedef struct {
 	char toPrint[MAXINPUT];
 	MODE mode;
-	char chMask;
+	u_int chMask;
 	u_int focus;
 } State;
 
 State currentState;
 
 chtype emptyChar[2] = {' ', 0};
-Win baseScr;
 
 char *options[] = {
 	"Set String",
@@ -42,8 +42,6 @@ char *options[] = {
 };
 
 int numOptions = 7;
-
-char toPrint[MAXINPUT] = {0};
 int skip, cancel;
 Win baseScr;
 WinList allWins = NULL;
@@ -72,13 +70,19 @@ void init(){
 	baseScr.borderSize = 0;
 	baseScr.xpos = 0;
 	baseScr.ypos = 0;
+	
+	currentState.toPrint[0] = ' '; 
+	currentState.toPrint[1] = 0;
+	currentState.mode = NORMAL;
+	currentState.chMask = 0;
+	currentState.focus = 0;
 }
 
-MODE get_mode( MODE prev_mode, MODE curr_mode, int key ){
+MODE get_mode(MODE curr_mode, int key ){
 	switch(key){
 		case ESC:
 			return NORMAL;
-		case 10:
+		case ENTER:
 			return (curr_mode == INSERT)? NORMAL:INSERT;
 		case KEY_BACKSPACE:
 			return (curr_mode == DELETE)? NORMAL:DELETE;
@@ -99,10 +103,10 @@ void update_hud(){
 	strncpy(string, " Press F1 to quit ", MAXINPUT);
 	mvaddstr(LINES - 1, get_xpos_for_string_window(baseScr, string, SIDE_LEFT, 1), string);
 
-	sprintf(string, " Brush: '%s' ", toPrint);
+	sprintf(string, " Brush: '%s' ", currentState.toPrint);
 	mvaddstr(LINES - 1, get_xpos_for_string_size(COLS, string, SIDE_CENTER, 1), string);
 
-	sprintf(string, " %s ", ( currentState.mode == NORMAL )? "NORMAL": (currentState.mode == DELETE)? "DELETE": "SELECT");
+	sprintf(string, " %s ", ( currentState.mode == NORMAL )? "NORMAL": (currentState.mode == DELETE)? "DELETE": "INSERT");
 	//sprintf(string, " SKIP: [%c] DELETE: [%c] ", (skip)? 'x': ' ', (cancel)? 'x':' ' );
 	mvaddstr(LINES - 1, get_xpos_for_string_size(COLS, string, SIDE_RIGHT, 1), string);
 	refresh();
@@ -315,15 +319,16 @@ int handle_enter(Win *window,int optNum){
 		case 0:
 			print_input_menu(posy, posx, maxChars + 2, defaultBorder,
 					"Write string to use:", NULL); 
-			read_input_echo(posy + 1, posx + 1, toPrint, maxChars); 
+			read_input_echo(posy + 1, posx + 1, currentState.toPrint, maxChars); 
 			clear_area(posy, posx, 3, maxChars + 2);
 			
 			curs_set(0);
 			update_hud();
 			break;
 		case 2:
-			if (getattrs(window->ptr) & A_REVERSE) wattroff(window->ptr, A_REVERSE);
-			else wattron(window->ptr, A_REVERSE);
+			if ( (currentState.chMask & A_REVERSE) == A_REVERSE ) currentState.chMask = currentState.chMask & !A_REVERSE;
+			else currentState.chMask = currentState.chMask | A_REVERSE;
+			wattrset(window->ptr, currentState.chMask);
 			break;
 		case 4:
 			print_input_menu(posy, posx, maxChars + 2, defaultBorder,
@@ -378,8 +383,6 @@ int main(int argc, char **argv){
 	//drawWin.ptr = newwin(drawWin.lines, drawWin.cols, drawWin.xpos, drawWin.ypos);
 	drawWin = create_Win(1, 1, LINES - 2, COLS - 2);
 
-	if ( drawWin != NULL ) allWins = append(drawWin, allWins);
-
 	//initialize popupWin
 	//popupWin.cols = 40;
 	//popupWin.lines = 10;
@@ -387,14 +390,9 @@ int main(int argc, char **argv){
 	//popupWin.ypos = LINES/2 - (popupWin.lines/2);
 	//popupWin.borderSize = 1;
 	//popupWin.ptr = newwin(popupWin.lines, popupWin.cols, popupWin.ypos, popupWin.xpos);
-	int posy, posx;
-	posy = LINES/2 - 5;
-	posx = COLS/2 - 20;
-	popupWin = create_Win( posy, posx, 10, 40 );
-
-	if ( popupWin != NULL ) allWins = append(popupWin, allWins);
-
 	
+	popupWin = create_Win( LINES/2 - 5, COLS/2 - 20, 10, 40 );
+
 	//keypad(stdscr, 1);
 	keypad(stdscr, 1);
 	keypad(drawWin->ptr, 1);
@@ -405,12 +403,8 @@ int main(int argc, char **argv){
 	dy = starty;
 	dx = startx;
 
-	drawFocus = 1;
-	skip = 1;
-	cancel = 0;
 	highlight = 0;
 
-	toPrint[0] = ' '; 
 
 	box(stdscr,0,0);
 	update_hud();
@@ -419,13 +413,13 @@ int main(int argc, char **argv){
 	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
 
 	
-	while( (inp = (drawFocus)? wgetch(drawWin->ptr) : wgetch(popupWin->ptr)) && inp != KEY_F(1) ){
-		if(drawFocus){
+	while( (inp = (currentState.focus == 0)? wgetch(drawWin->ptr) : wgetch(popupWin->ptr)) && inp != KEY_F(1) ){
+		if(currentState.focus == 0){
 			switch(inp){
 				case KEY_F(2):
 					touchwin(popupWin->ptr);
 					highlight_menu_line(popupWin, highlight, false);
-					drawFocus = 0;
+					currentState.focus = 1;
 					highlight_menu_line(popupWin, highlight, true);
 					break;
 				case KEY_LEFT:
@@ -440,25 +434,23 @@ int main(int argc, char **argv){
 				case KEY_DOWN:
 					if (dy < drawWin->lines - 1) ++dy;
 					break;
-				case 27:
-					skip = !skip;
-					break;
+				case ENTER:
+				case ESC:
 				case KEY_BACKSPACE:
-					cancel = !cancel;
+					currentState.mode = get_mode(currentState.mode, inp);
 					break;
 				default :
 					if(inp >= 32 && inp <=136){
-						cancel = 0;
-						toPrint[0] = inp;
-						toPrint[1] = 0;
+						currentState.toPrint[0] = inp;
+						currentState.toPrint[1] = 0;
 					}
 			}
 			update_hud();
-			if( (inp == KEY_ENTER) || (drawFocus && !skip) ){
-				if(cancel){
+			if( currentState.mode != NORMAL ){
+				if(currentState.mode == DELETE){
 					mvwaddchstr(drawWin->ptr, dy, dx , emptyChar); 
 				}
-				else mvwaddstr(drawWin->ptr, dy, dx , toPrint);
+				else mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
 				wrefresh(drawWin->ptr);
 			}
 			wmove(drawWin->ptr, dy, dx);
@@ -478,10 +470,10 @@ int main(int argc, char **argv){
 					else highlight++;
 					highlight_menu_line(popupWin, highlight,true);
 					break;
-				case 10:
+				case ENTER:
 					if (handle_enter(drawWin, highlight) == 0) break;
-				case 27: 
-					drawFocus = 1;
+				case ESC: 
+					currentState.focus = 0;
 					touchwin(drawWin->ptr);
 					wrefresh(drawWin->ptr);
 					wmove(drawWin->ptr, dy, dx);

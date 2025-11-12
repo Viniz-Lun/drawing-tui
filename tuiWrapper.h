@@ -57,17 +57,17 @@ typedef enum {
 	SIDE_RIGHT,
 } SIDE;
 
-typedef enum{
-	TOP_LEFT,
-	TOP_CENTER,
-	TOP_RIGHT,
-	MIDDLE_LEFT,
-	MIDDLE_CENTER,
-	MIDDLE_RIGHT,
-	BOTTOM_LEFT,
-	BOTTOM_CENTER,
-	BOTTOM_RIGHT,
-} POSITION;
+//typedef enum{
+//	TOP_LEFT,
+//	TOP_CENTER,
+//	TOP_RIGHT,
+//	MIDDLE_LEFT,
+//	MIDDLE_CENTER,
+//	MIDDLE_RIGHT,
+//	BOTTOM_LEFT,
+//	BOTTOM_CENTER,
+//	BOTTOM_RIGHT,
+//} POSITION;
 
 void remove_window(Win *win);
 

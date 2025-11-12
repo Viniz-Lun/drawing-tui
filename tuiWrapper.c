@@ -41,6 +41,9 @@ Win *create_Win(int posy, int posx, int height, int width){
 	win->xpos = posx;
 	win->borderSize = 0;
 	win->ptr = windowPtr; 
+
+	allWins = append( win, allWins );
+
 	return win;
 }
 
