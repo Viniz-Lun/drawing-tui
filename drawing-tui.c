@@ -130,7 +130,7 @@ void update_hud(){
 
 	mvhline(LINES - 1, 1, ACS_HLINE, COLS - 2);
 
-	strncpy(string, " PALLETTE:  ", MAXINPUT);
+	strncpy(string, " PALETTE:  ", MAXINPUT);
 	mvaddstr(LINES - 1, get_xpos_for_string_window(baseScr, string, SIDE_LEFT, 1), string);
 	mvaddch( LINES - 1, get_xpos_for_string_size(LINES, "", SIDE_LEFT, strlen(string) - 1), ' ' | currentState.chMask );
 
