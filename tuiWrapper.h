@@ -41,6 +41,7 @@ struct Win{
 	int xpos;
 	int ypos;
 	int borderSize;
+	int hidden;
 };
 
 //typedef struct {
@@ -71,7 +72,7 @@ typedef enum {
 
 void remove_window(Win *win);
 
-void delete_window(Win *win);
+void delete_Win(Win *win);
 
 int move_Win( Win *win, int posy, int posx);
 

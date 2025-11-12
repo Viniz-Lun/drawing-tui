@@ -27,6 +27,8 @@ WinList append(Win* win, WinList list);
 
 WinList append_list(WinList dest, WinList list);
 
+WinList remove_element(Win* win, WinList list);
+
 void free_list(WinList list);
 
 #endif

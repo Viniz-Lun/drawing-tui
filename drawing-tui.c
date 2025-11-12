@@ -33,16 +33,17 @@ State currentState;
 chtype emptyChar[2] = {' ', 0};
 
 char *options[] = {
-	"Set String",
+	"Set Brush string",
 	"Set color pair",
 	"Toggle reverse",
 	"Toggle Sticky mode",
 	"Load Image from file",
 	"Save Image",
+	"Help",
 	"Quit without Saving",
 };
 
-int numOptions = 7;
+int numOptions = 8;
 int skip, cancel;
 Win baseScr;
 WinList allWins = NULL;
@@ -76,7 +77,7 @@ void init(){
 	currentState.toPrint[1] = 0;
 	currentState.mode = NORMAL;
 	currentState.chMask = 0;
-	currentState.focus = 0;
+	currentState.focus = 1;
 }
 
 MODE get_mode(MODE curr_mode, int key ){
@@ -147,7 +148,7 @@ void update_hud(){
 
 void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **options, int numOptions, SIDE text_centering){
 	int y, x;
-	window->borderSize = 1;
+	winborder(window, defaultBorder);
 	
 	if(options != NULL){
 		numOptions = (numOptions > window->lines - window->borderSize*2)? window->lines - window->borderSize*2 : numOptions;
@@ -155,11 +156,10 @@ void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **opt
 			y = i + window->borderSize;
 			x = get_xpos_for_string_window(*window, options[i], text_centering, 0);
 
-			mvwhline(window->ptr, y, 0, ' ', window->cols);
-			mvwaddnstr(window->ptr, y, x, options[i], window->cols - window->borderSize * 2);
+			mvwhline( window->ptr, y, window->borderSize, ' ', window->cols - (window->borderSize * 2) );
+			mvwaddnstr( window->ptr, y, x, options[i], window->cols - (window->borderSize * 2) );
 		}
 	}
-	box(window->ptr, 0,0);
 
 	x = get_xpos_for_string_window(*window, title, title_centering, 0);
 	mvwaddstr(window->ptr, 0, x, title);
@@ -304,6 +304,49 @@ int load_image_from_file(Win *window, char *file_name){
 	return 0;
 }
 
+void print_help_screen(){
+	Win *helpWin = create_Win(10, 10, 30, 60);
+	curs_set(0);
+
+	mvwaddstr(helpWin->ptr, 1, 1, 
+	"So this is the help menu, to start drawing you can\n\
+ press <Esc> to exit the menu and enter the \n\
+ drawing screen.\n\
+ MODES:\n\
+ There are currently 4 modes implemented, which are:\n\
+ NORMAL\n\
+ - Key: <Esc>\n\
+ - The mode used to move around the screen without\n\
+ modifying the drawing.\n\
+ INSERT:\n\
+ - Key: <Enter>\n\
+ - The mode to actually draw on the screen, \n\
+ whenever your cursor moves it places the content of\n\
+ the brush at the cursor position in this mode.\n\
+ DELETE:\n\
+ - Key: <BackSpace>\n\
+ - The mode to put an empty space wherever your\n\
+ cursor moves.\n\
+ STICKY:\n\
+ - Key: menu option\n\
+ - This mode is different from the others, instead\n\
+ of switching modes, each key press is it's own\n\
+ action, without switching to the respective mode,\n\
+ acting like a constant NORMAL mode.\n\
+ For example, whenever you press <Enter> it places\n\
+ the content of the brush at the position of the cursor\n\
+ while staying in the STICKY mode, same with <BackSpace>.\n\
+ ---Press any key to exit Help menu---\
+");
+
+	setup_menu_popup(helpWin, "| Help menu |", SIDE_CENTER, NULL, 0, 0);
+	wrefresh(helpWin->ptr);
+
+
+	getch();
+	delete_Win(helpWin);
+}
+
 
 void highlight_menu_line(Win* window, int lineNum, bool highlight){
 	chtype* buffer;
@@ -356,6 +399,9 @@ int handle_enter(Win *window,int optNum){
 			curs_set(0);
 			update_hud();
 			break;
+		case 1:
+			//set_color();
+			break;
 		case 2:
 			if ( (currentState.chMask & A_REVERSE) == A_REVERSE ) currentState.chMask = currentState.chMask & !A_REVERSE;
 			else currentState.chMask = currentState.chMask | A_REVERSE;
@@ -388,6 +434,9 @@ int handle_enter(Win *window,int optNum){
 			}
 			break;
 		case 6:
+			print_help_screen();
+			break;
+		case 7:
 			free_list(allWins);
 			endwin();
 			exit(0);
@@ -445,6 +494,8 @@ int main(int argc, char **argv){
 	
 	wmove(drawWin->ptr, starty, startx);
 	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
+	highlight_menu_line(popupWin, highlight, false);
+	highlight_menu_line(popupWin, highlight, true);
 
 	while( (inp = (currentState.focus == 0)? wgetch(drawWin->ptr) : wgetch(popupWin->ptr)) && inp != KEY_F(1) ){
 		if(currentState.focus == 0){
@@ -479,7 +530,7 @@ int main(int argc, char **argv){
 					update_hud();
 					break;
 			}
-			if( currentState.mode != NORMAL ){
+			if( currentState.mode != NORMAL && currentState.focus == 0 ){
 				if( currentState.mode == DELETE || ( currentState.mode == STICKY && inp == KEY_BACKSPACE ) ){
 					mvwaddchstr(drawWin->ptr, dy, dx , emptyChar); 
 				}

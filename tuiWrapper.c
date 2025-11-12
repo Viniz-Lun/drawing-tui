@@ -1,6 +1,7 @@
 /* tuiWrapper.c */
 
 #include "tuiWrapper.h"
+#include "list.h"
 #include <curses.h>
 
 WinBorder defaultBorder = {
@@ -19,14 +20,57 @@ void clear_Win(Win *win){
 	win->borderSize = 0;
 }
 
-void remove_window(Win *win){
-	wclear(win->ptr);
-	wrefresh(win->ptr);
+int posy_first_intersect(Win* Awin, Win* Bwin){
+	int miny;
+	if( Awin->ypos >= Bwin->ypos && Awin->ypos <= (Bwin->ypos + Bwin->lines) ){
+		miny = Awin->ypos;
+	}
+	else{
+		if( Bwin->ypos >= Awin->ypos && Bwin->ypos <= (Awin->ypos + Awin->lines) ) miny = Bwin->ypos;
+		else return -1;
+	}
+
+	if( Awin->xpos >= Bwin->xpos && Awin->xpos <= (Bwin->xpos + Bwin->cols) ||
+			Bwin->xpos >= Awin->xpos && Bwin->xpos <= (Awin->xpos + Awin->cols) ){
+		return miny;
+	}
+	return -1;
 }
 
-void delete_window(Win *win){
+int num_lines_intersect(Win* Awin, Win* Bwin){
+	if( posy_first_intersect(Awin, Bwin) >= 0){
+		if( Awin->ypos >= Bwin->ypos ) return min((Awin->ypos + Awin->lines), (Bwin->ypos + Bwin->lines)) - Awin->ypos;
+		else return min((Bwin->ypos + Bwin->lines), (Awin->ypos + Awin->lines)) - Bwin->ypos;
+	}
+	else return -1;
+}
+
+void remove_window(Win *win){
+	int i, intersectPoint, numLines;
+	clear_area(win->ypos, win->xpos, win->lines, win->cols);
+	win->hidden = 1;
+	WinList tempList = allWins;
+	Win *currentWin;
+	while( ! is_empty(tempList) ){
+		currentWin = head(tempList);
+		if( ! currentWin->hidden ){
+			intersectPoint = posy_first_intersect(win, currentWin);
+			if( intersectPoint >= 0 ){
+				touchline( currentWin->ptr,
+						intersectPoint - currentWin->ypos,
+						num_lines_intersect(win, currentWin));
+				wrefresh(currentWin->ptr);
+			}
+		}
+		tempList = tail(tempList);
+	}
+}
+
+void delete_Win(Win *win){
 	remove_window(win);
 	delwin(win->ptr);
+	allWins = remove_element(win, allWins);
+	free( win );
 }
 
 Win *create_Win(int posy, int posx, int height, int width){
