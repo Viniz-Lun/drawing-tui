@@ -14,6 +14,25 @@ WinBorder defaultBorder = {
 	0,
 	0,
 };
+Win baseScr = {
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+	0,
+};
+
+void end_screen(){
+	endwin();
+	WinList tempList = allWins;
+	while( ! is_empty(tempList) ){
+		if( head(tempList) != &baseScr ) free( head(tempList) );
+		tempList = tail(tempList);
+	}
+	free_list(allWins);
+}
 
 void clear_Win(Win *win){
 	wclear(win->ptr);
@@ -85,6 +104,7 @@ Win *create_Win(int posy, int posx, int height, int width){
 	win->xpos = posx;
 	win->borderSize = 0;
 	win->ptr = windowPtr; 
+	win->hidden = 0;
 
 	allWins = append( win, allWins );
 
@@ -164,16 +184,16 @@ int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset){
 	else return get_xpos_for_string_size(window.cols, string, side, window.borderSize + offset);
 }
 
-void read_input_echo(int y, int x, char *result, int max){
+void wread_input_echo(Win* win, int y, int x, char *result, int max){
 	int inputChar;
 	char temp[MAXINPUT] = {0};
 	int i;
 
 	max = min(MAXINPUT, max);
 
-	move(y, x);
+	wmove(win->ptr, y, x);
 	i = 0;
-	inputChar = getch();
+	inputChar = wgetch(win->ptr);
 	while (! (inputChar == '\n' || inputChar == '\r' || inputChar == 10 || inputChar == KEY_F(1) || inputChar == 27)){
 		if (inputChar <= 256 && i < max){
 			temp[i++] = inputChar;
@@ -181,21 +201,20 @@ void read_input_echo(int y, int x, char *result, int max){
 		if (inputChar == KEY_BACKSPACE && i > 0){
 			temp[--i] = '\0';
 		}
-		mvhline(y, x, ' ', max);
-		move(y, x);
-		printw("%s", temp);
-		refresh();
-		inputChar = getch();
+		mvwhline(win->ptr, y, x, ' ', max);
+		wmove(win->ptr, y, x);
+		wprintw(win->ptr, "%s", temp);
+		wrefresh(win->ptr);
+		inputChar = wgetch(win->ptr);
 	}
 	
 	temp[i] = '\0';
 	
-	if (inputChar == KEY_F(1)) {
-		endwin();
-		exit(0);
-	}
-	if (inputChar != 27) strncpy(result, temp, max);
+	if (inputChar != 27 && inputChar != KEY_F(1)) strncpy(result, temp, max);
 	
 	return;
+
 }
+
+
 

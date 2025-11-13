@@ -31,6 +31,7 @@ typedef struct {
 	int bottomLeft_corner;
 } WinBorder;
 
+extern Win baseScr;
 extern WinBorder defaultBorder;
 extern WinList allWins;
 
@@ -70,6 +71,8 @@ typedef enum {
 //	BOTTOM_RIGHT,
 //} POSITION;
 
+void end_screen();
+
 void remove_window(Win *win);
 
 void delete_Win(Win *win);
@@ -88,6 +91,7 @@ int get_xpos_for_string_size(int width, char *string, SIDE side, int offset);
 
 int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset);
 
-void read_input_echo(int y, int x, char *result, int max);
+void wread_input_echo(Win *win, int y, int x, char *result, int max);
 
+#define read_input_echo(y, x, result, max); wread_input_echo(&baseScr, y, x, result, max);
 #endif

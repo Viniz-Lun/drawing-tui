@@ -21,6 +21,12 @@ typedef enum {
 	STICKY,
 } MODE;
 
+typedef struct{
+	u_int r;
+	u_int g;
+	u_int b;
+} RGB;
+
 typedef struct {
 	char toPrint[MAXINPUT];
 	MODE mode;
@@ -45,7 +51,6 @@ char *options[] = {
 
 int numOptions = 8;
 int skip, cancel;
-Win baseScr;
 WinList allWins = NULL;
 
 void init(){
@@ -130,7 +135,7 @@ void update_hud(){
 
 	mvhline(LINES - 1, 1, ACS_HLINE, COLS - 2);
 
-	strncpy(string, " PALETTE:  ", MAXINPUT);
+	strncpy(string, " PALETTE: $  ", MAXINPUT);
 	mvaddstr(LINES - 1, get_xpos_for_string_window(baseScr, string, SIDE_LEFT, 1), string);
 	mvaddch( LINES - 1, get_xpos_for_string_size(LINES, "", SIDE_LEFT, strlen(string) - 1), ' ' | currentState.chMask );
 
@@ -379,6 +384,43 @@ void highlight_menu_line(Win* window, int lineNum, bool highlight){
 	return;
 }
 
+//RGB hex_parse(char* hexCode){
+//	return (RGB){ 900, 100, 100 };
+//}
+//
+//int change_color_popup(Win* drawWin){
+//	Win* color_win;
+//	char hex_code[7];
+//	RGB rgb1;
+//	RGB rgb2;
+//
+//	color_win = create_Win(10,10,20,70);
+//	setup_menu_popup(color_win, "Color_picker", SIDE_CENTER, NULL, 0, 0);
+//	wrefresh(color_win->ptr);
+//	curs_set(1);
+//
+//	wmove(color_win->ptr, 16, 2);
+//	waddstr(color_win->ptr, "Choose letter color");
+//	wread_input_echo(color_win, 18, 2, hex_code, 6);
+//	rgb1 = hex_parse(hex_code);
+//
+//	wmove(color_win->ptr, 16, 2);
+//	waddstr(color_win->ptr, "Choose background color");
+//	wread_input_echo(color_win, 18, 2, hex_code, 6);
+//	rgb2 = hex_parse(hex_code);
+//	wprintw(color_win->ptr, "R:%d,G:%d,B:%d", rgb1.r,rgb1.g,rgb2.b);
+//	wgetch(color_win->ptr);
+//
+//	init_color(COLOR_RED, rgb1.r, rgb1.g, rgb1.b);
+//	init_color(COLOR_BLUE, rgb2.r, rgb2.g, rgb2.b);
+//	init_pair( 1, COLOR_RED, COLOR_BLUE);
+//	
+//	wattron(drawWin->ptr, COLOR_PAIR(1));
+//
+//	delete_Win(color_win);
+//	return 0;
+//}
+
 int handle_enter(Win *window,int optNum){
 	int fd;
 	char file_name[MAXINPUT] = {0};
@@ -400,7 +442,7 @@ int handle_enter(Win *window,int optNum){
 			update_hud();
 			break;
 		case 1:
-			//set_color();
+			//change_color_popup(window);
 			break;
 		case 2:
 			if ( (currentState.chMask & A_REVERSE) == A_REVERSE ) currentState.chMask = currentState.chMask & !A_REVERSE;
@@ -437,8 +479,7 @@ int handle_enter(Win *window,int optNum){
 			print_help_screen();
 			break;
 		case 7:
-			free_list(allWins);
-			endwin();
+			end_screen();
 			exit(0);
 			break;
 	}
@@ -456,6 +497,9 @@ int main(int argc, char **argv){
 	/* initialize curses */
 
 	init();
+//
+	start_color();
+//
 
 	//initialize drawWin
 	//drawWin.cols = COLS - 2;
@@ -501,10 +545,10 @@ int main(int argc, char **argv){
 		if(currentState.focus == 0){
 			switch(inp){
 				case KEY_F(2):
+					popupWin->hidden = 0;
 					touchwin(popupWin->ptr);
-					highlight_menu_line(popupWin, highlight, false);
+					wrefresh(popupWin->ptr);
 					currentState.focus = 1;
-					highlight_menu_line(popupWin, highlight, true);
 					break;
 				case KEY_LEFT:
 					if (dx > 0) --dx;
@@ -563,8 +607,7 @@ int main(int argc, char **argv){
 					}
 				case ESC: 
 					currentState.focus = 0;
-					touchwin(drawWin->ptr);
-					wrefresh(drawWin->ptr);
+					remove_window(popupWin);
 					wmove(drawWin->ptr, dy, dx);
 					curs_set(1);
 					break;
@@ -573,8 +616,7 @@ int main(int argc, char **argv){
 			}
 		}
 	} 
-	free_list(allWins);
-	endwin();
+	end_screen();
 	
 	return 0;
 }
