@@ -40,20 +40,23 @@ void clear_Win(Win *win){
 }
 
 int posy_first_intersect(Win* Awin, Win* Bwin){
-	int miny;
+	//int miny;
 	if( Awin->ypos >= Bwin->ypos && Awin->ypos <= (Bwin->ypos + Bwin->lines) ){
-		miny = Awin->ypos;
+		//miny = Awin->ypos;
+		return Awin->ypos;
 	}
 	else{
-		if( Bwin->ypos >= Awin->ypos && Bwin->ypos <= (Awin->ypos + Awin->lines) ) miny = Bwin->ypos;
+		if( Bwin->ypos >= Awin->ypos && Bwin->ypos <= (Awin->ypos + Awin->lines) ) 
+			//miny = Bwin->ypos;
+			return Bwin->ypos;
 		else return -1;
 	}
 
-	if( Awin->xpos >= Bwin->xpos && Awin->xpos <= (Bwin->xpos + Bwin->cols) ||
-			Bwin->xpos >= Awin->xpos && Bwin->xpos <= (Awin->xpos + Awin->cols) ){
-		return miny;
-	}
-	return -1;
+	//if( Awin->xpos >= Bwin->xpos && Awin->xpos <= (Bwin->xpos + Bwin->cols) ||
+	//		Bwin->xpos >= Awin->xpos && Bwin->xpos <= (Awin->xpos + Awin->cols) ){
+	//	return miny;
+	//}
+	//return -1;
 }
 
 int num_lines_intersect(Win* Awin, Win* Bwin){

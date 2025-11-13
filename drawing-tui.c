@@ -384,42 +384,42 @@ void highlight_menu_line(Win* window, int lineNum, bool highlight){
 	return;
 }
 
-//RGB hex_parse(char* hexCode){
-//	return (RGB){ 900, 100, 100 };
-//}
-//
-//int change_color_popup(Win* drawWin){
-//	Win* color_win;
-//	char hex_code[7];
-//	RGB rgb1;
-//	RGB rgb2;
-//
-//	color_win = create_Win(10,10,20,70);
-//	setup_menu_popup(color_win, "Color_picker", SIDE_CENTER, NULL, 0, 0);
-//	wrefresh(color_win->ptr);
-//	curs_set(1);
-//
-//	wmove(color_win->ptr, 16, 2);
-//	waddstr(color_win->ptr, "Choose letter color");
-//	wread_input_echo(color_win, 18, 2, hex_code, 6);
-//	rgb1 = hex_parse(hex_code);
-//
-//	wmove(color_win->ptr, 16, 2);
-//	waddstr(color_win->ptr, "Choose background color");
-//	wread_input_echo(color_win, 18, 2, hex_code, 6);
-//	rgb2 = hex_parse(hex_code);
-//	wprintw(color_win->ptr, "R:%d,G:%d,B:%d", rgb1.r,rgb1.g,rgb2.b);
-//	wgetch(color_win->ptr);
-//
-//	init_color(COLOR_RED, rgb1.r, rgb1.g, rgb1.b);
-//	init_color(COLOR_BLUE, rgb2.r, rgb2.g, rgb2.b);
-//	init_pair( 1, COLOR_RED, COLOR_BLUE);
-//	
-//	wattron(drawWin->ptr, COLOR_PAIR(1));
-//
-//	delete_Win(color_win);
-//	return 0;
-//}
+RGB hex_parse(char* hexCode){
+	return (RGB){ 900, 100, 100 };
+}
+
+int change_color_popup(Win* drawWin){
+	Win* color_win;
+	char hex_code[7];
+	RGB rgb1;
+	RGB rgb2;
+
+	color_win = create_Win(10,10,20,70);
+	setup_menu_popup(color_win, "Color_picker", SIDE_CENTER, NULL, 0, 0);
+	wrefresh(color_win->ptr);
+	curs_set(1);
+
+	wmove(color_win->ptr, 16, 2);
+	waddstr(color_win->ptr, "Choose letter color");
+	wread_input_echo(color_win, 18, 2, hex_code, 6);
+	rgb1 = hex_parse(hex_code);
+
+	wmove(color_win->ptr, 16, 2);
+	waddstr(color_win->ptr, "Choose background color");
+	wread_input_echo(color_win, 18, 2, hex_code, 6);
+	rgb2 = hex_parse(hex_code);
+	wprintw(color_win->ptr, "R:%d,G:%d,B:%d", rgb1.r,rgb1.g,rgb2.b);
+	wgetch(color_win->ptr);
+
+	init_color(COLOR_RED, rgb1.r, rgb1.g, rgb1.b);
+	init_color(COLOR_BLUE, rgb2.r, rgb2.g, rgb2.b);
+	init_pair( 1, COLOR_RED, COLOR_BLUE);
+	
+	wattron(drawWin->ptr, COLOR_PAIR(1));
+
+	delete_Win(color_win);
+	return 0;
+}
 
 int handle_enter(Win *window,int optNum){
 	int fd;
@@ -442,7 +442,7 @@ int handle_enter(Win *window,int optNum){
 			update_hud();
 			break;
 		case 1:
-			//change_color_popup(window);
+			change_color_popup(window);
 			break;
 		case 2:
 			if ( (currentState.chMask & A_REVERSE) == A_REVERSE ) currentState.chMask = currentState.chMask & !A_REVERSE;
@@ -457,7 +457,6 @@ int handle_enter(Win *window,int optNum){
 					"Insert file name (current directory):", "Esc to cancel");
 			read_input_echo(posy + 1, posx + 1, file_name, maxChars); 
 			clear_area(posy, posx, 3, maxChars + 2);
-			curs_set(0);
 			
 			if(file_name[0] != 0){
 				load_image_from_file(window, file_name);
@@ -483,6 +482,7 @@ int handle_enter(Win *window,int optNum){
 			exit(0);
 			break;
 	}
+	curs_set(0);
 	return 0;
 }
 
