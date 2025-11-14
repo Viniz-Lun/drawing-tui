@@ -11,6 +11,7 @@
 
 #define ESC 27
 #define ENTER 10
+#define COLOR_PREVIEW 255
 
 typedef enum {
 	INSERT,
@@ -352,10 +353,8 @@ void print_help_screen(){
 ");
 
 	setup_menu_popup(helpWin, "| Help menu |", SIDE_CENTER, NULL, 0, 0);
-	wrefresh(helpWin->ptr);
 
-
-	getch();
+	wgetch(helpWin->ptr);
 	delete_Win(helpWin);
 }
 
@@ -395,28 +394,114 @@ RGB hex_parse(char* hexCode){
 	return (RGB){ 900, 100, 100 };
 }
 
+int option_picker(Win* win, int numOptions, int* hover){
+	int highlight = 0;
+	int input = 0;
+
+	if( ! is_keypad( win->ptr ) ) keypad( win->ptr, true );
+
+	curs_set(0);
+	
+	if( hover != NULL ) {
+		highlight = *hover;
+		if( highlight < 0 ) highlight = highlight * -1;
+		if( highlight >= numOptions ) highlight = highlight % (numOptions - 1);
+	}
+
+	highlight_menu_line(win, highlight,true);
+	while( (input = wgetch(win->ptr)) ){
+		switch(input){
+			case KEY_UP:
+				highlight_menu_line(win, highlight,false);
+				if(highlight == 0) highlight = numOptions - 1;
+				else highlight--;
+				highlight_menu_line(win, highlight,true);
+				break;
+			case KEY_DOWN:
+				highlight_menu_line(win, highlight,false);
+				if(highlight == numOptions - 1) highlight = 0;
+				else highlight++;
+				highlight_menu_line(win, highlight,true);
+				break;
+			case ENTER:
+				if( hover !=NULL ) *hover = highlight;
+				return highlight;
+			case ESC: 
+				if( hover !=NULL ) *hover = highlight;
+				return -1;
+				break;
+			case KEY_F(1):
+				return -2;
+				break;
+			default :
+				break;
+		}
+	}
+	return -10;
+}
+
+void fill_string_with_char(char* result, char c, int maxlen){
+	int i;
+	for( i = 0; i < maxlen && result[i] != '\0'; i++ );
+	if ( i < maxlen ){
+		for(; i < maxlen ; i++ ){
+			result[i] = '0';
+		}
+		result[i] = '\0';
+	}
+	else return;
+
+}
+
 int change_color_popup(Win* drawWin){
 	Win* color_win;
 	char hex_code[7];
 	RGB rgb1;
 	RGB rgb2;
+	int optionSelected = 0;
+	int posLetterHex;
+	int posBackHex;
+	int posYHex;
+	char *color_options[] ={
+		"Choose letter color",
+		"Choose background color",
+	};
 
-	color_win = create_Win(10,10,20,70);
-	setup_menu_popup(color_win, "Color_picker", SIDE_CENTER, NULL, 0, 0);
+	color_win = create_Win(10,10,10,30);
+	setup_menu_popup(color_win, "| Color picker |", SIDE_CENTER, color_options, 2, SIDE_LEFT);
 	wrefresh(color_win->ptr);
 	curs_set(1);
+	posYHex = color_win->lines - color_win->borderSize - 1;
+	posLetterHex = color_win->borderSize + 2;
+	posBackHex = color_win->cols - color_win->borderSize - 7;
 
-	wmove(color_win->ptr, 16, 2);
-	waddstr(color_win->ptr, "Choose letter color");
-	wread_input_echo(color_win, 18, 2, hex_code, 6);
-	rgb1 = hex_parse(hex_code);
+	mvwaddstr(color_win->ptr, posYHex, posLetterHex - 1, "#000000");
+	mvwaddstr(color_win->ptr, posYHex, posBackHex - 1, "#000000");
 
-	wmove(color_win->ptr, 16, 2);
-	waddstr(color_win->ptr, "Choose background color");
-	wread_input_echo(color_win, 18, 2, hex_code, 6);
-	rgb2 = hex_parse(hex_code);
-	wprintw(color_win->ptr, "R:%d,G:%d,B:%d", rgb1.r,rgb1.g,rgb2.b);
-	wgetch(color_win->ptr);
+	hex_code[0] = '\0';
+
+	while( (optionSelected = option_picker(color_win, 2, &optionSelected)) >= 0 ){
+		curs_set(1);
+		switch(optionSelected){
+			case 0:
+				wread_input_echo(color_win, posYHex, posLetterHex, hex_code, 6);
+				fill_string_with_char(hex_code, '0', 6);
+				mvwaddstr(color_win->ptr, posYHex, posLetterHex, hex_code);
+				break;
+			case 1:
+				wread_input_echo(color_win, posYHex, posBackHex, hex_code, 6);
+				fill_string_with_char(hex_code, '0', 6);
+				mvwaddstr(color_win->ptr, posYHex, posBackHex, hex_code);
+				break;
+			default:
+				break;
+		}
+		hex_code[0] = '\0';
+	}
+	if( optionSelected == -2 ){
+		end_screen();
+		exit(0);
+	}
 
 	init_color(COLOR_RED, rgb1.r, rgb1.g, rgb1.b);
 	init_color(COLOR_BLUE, rgb2.r, rgb2.g, rgb2.b);
@@ -449,7 +534,8 @@ int handle_enter(Win *window,int optNum){
 			update_hud();
 			break;
 		case 1:
-			change_color_popup(window);
+			if( has_colors() ) change_color_popup(window);
+			else show_message_top_left("This terminal does not have the capability for colors");
 			break;
 		case 2:
 			if ( (currentState.chMask & A_REVERSE) == A_REVERSE ) currentState.chMask = currentState.chMask & !A_REVERSE;
@@ -497,7 +583,7 @@ int main(int argc, char **argv){
 	
 	int startx, starty, dx, dy;
 	int inp;
-	int drawFocus;
+	int optionSelected;
 	int highlight;
 	Win *popupWin, *drawWin;
 
@@ -518,6 +604,7 @@ int main(int argc, char **argv){
 	//drawWin.borderSize = 0;
 	//drawWin.ptr = newwin(drawWin.lines, drawWin.cols, drawWin.xpos, drawWin.ypos);
 	drawWin = create_Win(1, 1, LINES - 2, COLS - 2);
+	wrefresh(drawWin->ptr);
 
 	//initialize popupWin
 	//popupWin.cols = 40;
@@ -550,9 +637,15 @@ int main(int argc, char **argv){
 	highlight_menu_line(popupWin, highlight, false);
 	highlight_menu_line(popupWin, highlight, true);
 
-	while( (inp = (currentState.focus == 0)? wgetch(drawWin->ptr) : wgetch(popupWin->ptr)) && inp != KEY_F(1) ){
+	for(;;){
 		if(currentState.focus == 0){
+			///show_message_top_left("before wgetch drawWin");
+			inp = wgetch(drawWin->ptr);
 			switch(inp){
+				case KEY_F(1):
+					end_screen();
+					exit(0);
+					break;
 				case KEY_F(2):
 					popupWin->hidden = 0;
 					touchwin(popupWin->ptr);
@@ -594,35 +687,21 @@ int main(int argc, char **argv){
 			}
 			wmove(drawWin->ptr, dy, dx);
 		}
-		else{
+		if( currentState.focus == 1 ){
 			//MENU navigation
-			switch(inp){
-				case KEY_UP:
-					highlight_menu_line(popupWin, highlight,false);
-					if(highlight == 0) highlight = numOptions - 1;
-					else highlight--;
-					highlight_menu_line(popupWin, highlight,true);
+			while( (optionSelected = option_picker(popupWin, numOptions, &highlight)) >= 0 ){
+				if (handle_enter(drawWin, optionSelected) == 0){
+					update_hud();
 					break;
-				case KEY_DOWN:
-					highlight_menu_line(popupWin, highlight,false);
-					if(highlight == numOptions - 1) highlight = 0;
-					else highlight++;
-					highlight_menu_line(popupWin, highlight,true);
-					break;
-				case ENTER:
-					if (handle_enter(drawWin, highlight) == 0){
-						update_hud();
-						break;
-					}
-				case ESC: 
-					currentState.focus = 0;
-					remove_window(popupWin);
-					wmove(drawWin->ptr, dy, dx);
-					curs_set(1);
-					break;
-				default :
-					break;
+				}
 			}
+			if( optionSelected == -1 ){
+				currentState.focus = 0;
+				remove_window(popupWin);
+				wmove(drawWin->ptr, dy, dx);
+				curs_set(1);
+			}
+			if( optionSelected == -2 ) break;
 		}
 	} 
 	end_screen();

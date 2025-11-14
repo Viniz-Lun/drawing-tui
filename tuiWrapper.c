@@ -60,15 +60,16 @@ int posy_first_intersect(Win* Awin, Win* Bwin){
 }
 
 int num_lines_intersect(Win* Awin, Win* Bwin){
-	if( posy_first_intersect(Awin, Bwin) >= 0){
-		if( Awin->ypos >= Bwin->ypos ) return min((Awin->ypos + Awin->lines), (Bwin->ypos + Bwin->lines)) - Awin->ypos;
-		else return min((Bwin->ypos + Bwin->lines), (Awin->ypos + Awin->lines)) - Bwin->ypos;
+	int firstPosy, lastPosy;
+	if( (firstPosy = posy_first_intersect(Awin, Bwin)) >= 0){
+		lastPosy = min((Awin->ypos + Awin->lines), (Bwin->ypos + Bwin->lines));
+		return lastPosy - firstPosy;
 	}
 	else return -1;
 }
 
 void remove_window(Win *win){
-	int i, intersectPoint, numLines;
+	int intersectPoint, numLines;
 	clear_area(win->ypos, win->xpos, win->lines, win->cols);
 	win->hidden = 1;
 	WinList tempList = allWins;
