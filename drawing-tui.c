@@ -103,6 +103,13 @@ MODE get_mode(MODE curr_mode, int key ){
 	}
 }
 
+void show_message_top_left(char* message){
+	mvaddch(0, 0, ACS_ULCORNER);
+	mvhline(0, 1, ACS_HLINE, COLS - 2);
+	mvaddstr(0, 2, message);
+	refresh();
+}
+
 void get_mode_nstring(char* dest, MODE mode, int maxlen){
 	switch(mode){
 		case NORMAL:
@@ -218,7 +225,7 @@ int save_drawing_to_file(Win *window, char *file_name){
 	if (fd < 0){
 		strncpy(stringExitMsg, " Error opening/creating the file ", 32);
 		perror(stringExitMsg);
-		mvaddstr(0, 0, stringExitMsg);
+		show_message_top_left(stringExitMsg);
 		refresh();
 		free(buffer);
 		return 1;
@@ -232,7 +239,7 @@ int save_drawing_to_file(Win *window, char *file_name){
 	free(buffer);
 	close(fd);
 	sprintf(stringExitMsg, " Done saving file, size: %lu ", window->cols * window->lines * sizeof(char) + sizeof(char) * window->lines );
-	mvaddstr(0, 0, stringExitMsg);
+	show_message_top_left(stringExitMsg);
 	refresh();
 	return 0;
 }
@@ -246,7 +253,7 @@ int load_image_from_file(Win *window, char *file_name){
 	if (fd < 0){
 		mvhline(0, 0, COLS, ' ');
 		strncpy(stringExitMsg, " Error opening the file ", 32);
-		mvaddstr(0, 0, stringExitMsg);
+		show_message_top_left(stringExitMsg);
 		refresh();
 		return 1;
 	}
@@ -304,7 +311,7 @@ int load_image_from_file(Win *window, char *file_name){
 	}
 
 	mvhline(0, 0, COLS, ' ');
-	mvaddstr(0, 0, stringExitMsg);
+	show_message_top_left(stringExitMsg);
 	refresh();
 	return 0;
 }
@@ -498,7 +505,9 @@ int main(int argc, char **argv){
 
 	init();
 //
-	start_color();
+	if( has_colors() ){
+		start_color();
+	}
 //
 
 	//initialize drawWin
