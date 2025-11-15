@@ -34,6 +34,7 @@ typedef struct {
 extern Win baseScr;
 extern WinBorder defaultBorder;
 extern WinList allWins;
+extern chtype emptyChar;
 
 struct Win{
 	WINDOW *ptr;
@@ -78,6 +79,8 @@ void remove_window(Win *win);
 void delete_Win(Win *win);
 
 int move_Win( Win *win, int posy, int posx);
+
+void clear_Win( Win *win);
 
 Win *create_Win(int posy, int posx, int height, int width);
 

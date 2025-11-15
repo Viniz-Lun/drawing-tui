@@ -1,8 +1,10 @@
 /* triangle.c */
 #include <curses.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -12,6 +14,7 @@
 #define ESC 27
 #define ENTER 10
 #define COLOR_PREVIEW 255
+#define FIRST_PAIR 1
 
 typedef enum {
 	INSERT,
@@ -32,26 +35,11 @@ typedef struct {
 	char toPrint[MAXINPUT];
 	MODE mode;
 	u_int chMask;
-	u_int focus;
+	Win* focus;
 } State;
 
 State currentState;
 
-chtype emptyChar[2] = {' ', 0};
-
-char *options[] = {
-	"Set Brush string",
-	"Set color pair",
-	"Toggle reverse",
-	"Toggle Sticky mode",
-	"Load Image from file",
-	"Save Image",
-	"Help",
-	"Quit without Saving",
-};
-
-int numOptions = 8;
-int skip, cancel;
 WinList allWins = NULL;
 
 void init(){
@@ -79,11 +67,11 @@ void init(){
 	baseScr.xpos = 0;
 	baseScr.ypos = 0;
 	
-	currentState.toPrint[0] = ' '; 
+	currentState.toPrint[0] = '$'; 
 	currentState.toPrint[1] = 0;
 	currentState.mode = NORMAL;
 	currentState.chMask = 0;
-	currentState.focus = 1;
+	currentState.focus = &baseScr;
 }
 
 MODE get_mode(MODE curr_mode, int key ){
@@ -123,7 +111,7 @@ void get_mode_nstring(char* dest, MODE mode, int maxlen){
 			strncpy(dest, "SELECT",maxlen);
 			break;
 		case DELETE:
-			strncpy(dest, "DELETE",maxlen);
+			strncpy(dest, "DELETE", maxlen);
 			break;
 		case VISUAL:
 			strncpy(dest, "VISUAL",maxlen);
@@ -152,12 +140,10 @@ void update_hud(){
 
 	get_mode_nstring(modeString, currentState.mode, 7);
 	sprintf(string, "[ %s ]", modeString);
-	//sprintf(string, " SKIP: [%c] DELETE: [%c] ", (skip)? 'x': ' ', (cancel)? 'x':' ' );
+
 	mvaddstr(LINES - 1, get_xpos_for_string_size(COLS, string, SIDE_RIGHT, 1), string);
 	refresh();
 }
-
-// void posaddstr(Win window, char *string, POSITION pos){}
 
 void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **options, int numOptions, SIDE text_centering){
 	int y, x;
@@ -247,8 +233,10 @@ int save_drawing_to_file(Win *window, char *file_name){
 
 int load_image_from_file(Win *window, char *file_name){
 	int fd;
-	int i, o, nread, len;
+	int i, j, nread, len;
 	char stringExitMsg[32];
+	chtype *bufferPointer;
+	size_t size;
 
 	fd = open(file_name, O_RDONLY);
 	if (fd < 0){
@@ -260,58 +248,37 @@ int load_image_from_file(Win *window, char *file_name){
 	}
 
 	len = strlen(file_name);
-	if (isCurse(file_name, len)){
-		chtype *chtypeBuffer;
-		chtypeBuffer = (chtype*) malloc(window->cols * sizeof(chtype) +1);
-		
-		for(i = 0; i < window->lines; i++){
-			for(o = 0; o < window->cols + 1; o++){
-				nread = read(fd,&chtypeBuffer[o], sizeof(chtype));
-				if ((chtypeBuffer[o] & A_CHARTEXT) == '\n' || nread <= 0){
-					break;
-				}
-			}
-			if (nread >= 0) {
-				chtypeBuffer[o] = 0;
-				mvwaddchnstr(window->ptr, i, 0, chtypeBuffer, o);
-			}
-			if (nread <= 0) break;
-		}
-		
-		free(chtypeBuffer);
-	}
-	else{
-		char *charBuffer;
-		charBuffer = (char*) malloc(window->cols * sizeof(char) +1);
-		
-		for(i = 0; i < window->lines; i++){
-			for(o = 0; o < window->cols + 1; o++){
-				nread = read(fd, &charBuffer[o], sizeof(char));
-				if (charBuffer[o] == '\n' || nread <= 0){
-					break;
-				}
-			}
-			if (nread >= 0) {
-				charBuffer[o] = 0;
-				mvwaddnstr(window->ptr, i, 0, charBuffer, o);
-			}
-			if (nread <= 0) break;
-		}
-		
-		free(charBuffer);
-	}
 
+	bufferPointer = (chtype*) malloc((window->cols + 1) * sizeof(chtype));
+	memset(bufferPointer, 0, (window->cols+1) * sizeof(chtype));
+
+	size = ( isCurse(file_name, len) ) ? sizeof(chtype) : sizeof(char);
+
+	for(i = 0; i < window->lines; i++){
+		for(j = 0; j < window->cols + 1; j++){
+			nread = read(fd,&bufferPointer[j], size);
+			if ( bufferPointer[j] == '\n' || nread <= 0)
+				break;
+			if( i == 0 && j == 0 ) clear_Win(window);
+		}
+		if (nread >= 0) {
+			bufferPointer[j] = 0;
+			mvwaddchnstr(window->ptr, i, 0, bufferPointer, j);
+		}
+		if (nread <= 0) break;
+	}
+	
+	free( bufferPointer );
 	close(fd);
 
 	if (nread >= 0) {
-		sprintf(stringExitMsg, " Done loading file: %s ", file_name);
+		snprintf(stringExitMsg, 31, " Done loading file: %s ", file_name);
 		touchwin(window->ptr);
 	}
 	else {
-		sprintf(stringExitMsg, "Error reading from file");
+		strncpy(stringExitMsg, "Error reading from file", 31);
 	}
 
-	mvhline(0, 0, COLS, ' ');
 	show_message_top_left(stringExitMsg);
 	refresh();
 	return 0;
@@ -322,26 +289,26 @@ void print_help_screen(){
 	curs_set(0);
 
 	mvwaddstr(helpWin->ptr, 1, 1, 
-	"So this is the help menu, to start drawing you can\n\
- press <Esc> to exit the menu and enter the \n\
- drawing screen.\n\
+	"Welcome to my program, and to the help menu,\n\
+ to start drawing you can press <Esc> to exit the menu\n\
+ and enter the drawing screen. (after exiting this prompt)\n\
  MODES:\n\
  There are currently 4 modes implemented, which are:\n\
- NORMAL\n\
+ NORMAL:\n\
  - Key: <Esc>\n\
  - The mode used to move around the screen without\n\
  modifying the drawing.\n\
  INSERT:\n\
  - Key: <Enter>\n\
  - The mode to actually draw on the screen, \n\
- whenever your cursor moves it places the content of\n\
- the brush at the cursor position in this mode.\n\
+ whenever you move the cursor you place the content(s)\n\
+ of the brush at the current position.\n\
  DELETE:\n\
  - Key: <BackSpace>\n\
  - The mode to put an empty space wherever your\n\
  cursor moves.\n\
  STICKY:\n\
- - Key: menu option\n\
+ - Key: Menu option\n\
  - This mode is different from the others, instead\n\
  of switching modes, each key press is it's own\n\
  action, without switching to the respective mode,\n\
@@ -390,10 +357,6 @@ void highlight_menu_line(Win* window, int lineNum, bool highlight){
 	return;
 }
 
-RGB hex_parse(char* hexCode){
-	return (RGB){ 900, 100, 100 };
-}
-
 int option_picker(Win* win, int numOptions, int* hover){
 	int highlight = 0;
 	int input = 0;
@@ -440,7 +403,7 @@ int option_picker(Win* win, int numOptions, int* hover){
 	return -10;
 }
 
-void fill_string_with_char(char* result, char c, int maxlen){
+void pad_string_with_char(char* result, char c, int maxlen){
 	int i;
 	for( i = 0; i < maxlen && result[i] != '\0'; i++ );
 	if ( i < maxlen ){
@@ -452,6 +415,11 @@ void fill_string_with_char(char* result, char c, int maxlen){
 	else return;
 
 }
+
+//RGB hex_parse(char* hexCode){
+//	return (RGB){ 900, 100, 100 };
+//}
+
 
 int change_color_popup(Win* drawWin){
 	Win* color_win;
@@ -485,12 +453,12 @@ int change_color_popup(Win* drawWin){
 		switch(optionSelected){
 			case 0:
 				wread_input_echo(color_win, posYHex, posLetterHex, hex_code, 6);
-				fill_string_with_char(hex_code, '0', 6);
+				pad_string_with_char(hex_code, '0', 6);
 				mvwaddstr(color_win->ptr, posYHex, posLetterHex, hex_code);
 				break;
 			case 1:
 				wread_input_echo(color_win, posYHex, posBackHex, hex_code, 6);
-				fill_string_with_char(hex_code, '0', 6);
+				pad_string_with_char(hex_code, '0', 6);
 				mvwaddstr(color_win->ptr, posYHex, posBackHex, hex_code);
 				break;
 			default:
@@ -590,34 +558,35 @@ int main(int argc, char **argv){
 	/* initialize curses */
 
 	init();
-//
+
 	if( has_colors() ){
 		start_color();
 	}
-//
+
 
 	//initialize drawWin
-	//drawWin.cols = COLS - 2;
-	//drawWin.lines = LINES - 2;
-	//drawWin.xpos = 1;
-	//drawWin.ypos = 1;
-	//drawWin.borderSize = 0;
-	//drawWin.ptr = newwin(drawWin.lines, drawWin.cols, drawWin.xpos, drawWin.ypos);
 	drawWin = create_Win(1, 1, LINES - 2, COLS - 2);
 	wrefresh(drawWin->ptr);
 
 	//initialize popupWin
-	//popupWin.cols = 40;
-	//popupWin.lines = 10;
-	//popupWin.xpos = COLS/2 - (popupWin.cols/2);
-	//popupWin.ypos = LINES/2 - (popupWin.lines/2);
-	//popupWin.borderSize = 1;
-	//popupWin.ptr = newwin(popupWin.lines, popupWin.cols, popupWin.ypos, popupWin.xpos);
-	
+	char *options[] = {
+		"Set Brush string",
+		"Set color pair",
+		"Toggle reverse",
+		"Toggle Sticky mode",
+		"Load Image from file",
+		"Save Image",
+		"Help",
+		"Quit without Saving",
+	};
+	int numOptions = 8;
+
 	popupWin = create_Win( LINES/2 - 5, COLS/2 - 20, 10, 40 );
 
-	//keypad(stdscr, 1);
-	keypad(stdscr, 1);
+	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
+	highlight_menu_line(popupWin, highlight, true);
+
+	keypad(baseScr.ptr, 1);
 	keypad(drawWin->ptr, 1);
 	keypad(popupWin->ptr, 1);
 
@@ -628,17 +597,16 @@ int main(int argc, char **argv){
 
 	highlight = 0;
 
-
+	//Not exactly a border but more of a style choice, so no use of winborder.
 	box(stdscr,0,0);
 	update_hud();
 	
 	wmove(drawWin->ptr, starty, startx);
-	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
-	highlight_menu_line(popupWin, highlight, false);
-	highlight_menu_line(popupWin, highlight, true);
+
+	currentState.focus = popupWin;
 
 	for(;;){
-		if(currentState.focus == 0){
+		if(currentState.focus == drawWin){
 			///show_message_top_left("before wgetch drawWin");
 			inp = wgetch(drawWin->ptr);
 			switch(inp){
@@ -650,7 +618,7 @@ int main(int argc, char **argv){
 					popupWin->hidden = 0;
 					touchwin(popupWin->ptr);
 					wrefresh(popupWin->ptr);
-					currentState.focus = 1;
+					currentState.focus = popupWin;
 					break;
 				case KEY_LEFT:
 					if (dx > 0) --dx;
@@ -676,7 +644,7 @@ int main(int argc, char **argv){
 					update_hud();
 					break;
 			}
-			if( currentState.mode != NORMAL && currentState.focus == 0 ){
+			if( currentState.mode != NORMAL && currentState.focus == drawWin ){
 				if( currentState.mode == DELETE || ( currentState.mode == STICKY && inp == KEY_BACKSPACE ) ){
 					mvwaddchstr(drawWin->ptr, dy, dx , emptyChar); 
 				}
@@ -687,16 +655,22 @@ int main(int argc, char **argv){
 			}
 			wmove(drawWin->ptr, dy, dx);
 		}
-		if( currentState.focus == 1 ){
+		if( currentState.focus == popupWin ){
 			//MENU navigation
 			while( (optionSelected = option_picker(popupWin, numOptions, &highlight)) >= 0 ){
 				if (handle_enter(drawWin, optionSelected) == 0){
 					update_hud();
+				}
+				else{
+					currentState.focus = drawWin;
+					remove_window(popupWin);
+					wmove(drawWin->ptr, dy, dx);
+					curs_set(1);
 					break;
 				}
 			}
 			if( optionSelected == -1 ){
-				currentState.focus = 0;
+				currentState.focus = drawWin;
 				remove_window(popupWin);
 				wmove(drawWin->ptr, dy, dx);
 				curs_set(1);

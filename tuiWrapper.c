@@ -14,6 +14,7 @@ WinBorder defaultBorder = {
 	0,
 	0,
 };
+
 Win baseScr = {
 	0,
 	0,
@@ -23,6 +24,8 @@ Win baseScr = {
 	0,
 	0,
 };
+
+chtype emptyChar[2] = {' ', 0};
 
 void end_screen(){
 	endwin();
