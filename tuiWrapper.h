@@ -33,7 +33,6 @@ typedef struct {
 
 extern Win baseScr;
 extern WinBorder defaultBorder;
-extern WinList allWins;
 extern chtype emptyChar;
 
 struct Win{
@@ -72,17 +71,21 @@ typedef enum {
 //	BOTTOM_RIGHT,
 //} POSITION;
 
+void set_Win_list( WinList list );
+
+WinList get_Win_list();
+
 void end_screen();
 
-void remove_window(Win *win);
+void remove_window( Win *win );
 
-void delete_Win(Win *win);
+void delete_Win( Win *win );
 
-int move_Win( Win *win, int posy, int posx);
+int move_Win( Win *win, int posy, int posx );
 
-void clear_Win( Win *win);
+void clear_Win( Win *win );
 
-Win *create_Win(int posy, int posx, int height, int width);
+Win *create_Win( int posy, int posx, int height, int width );
 
 void winborder(Win *window, WinBorder border);
 

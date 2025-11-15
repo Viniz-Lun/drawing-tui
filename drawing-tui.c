@@ -40,15 +40,11 @@ typedef struct {
 
 State currentState;
 
-WinList allWins = NULL;
-
 void init(){
 	initscr();
 	cbreak();
 	noecho();
 	set_escdelay(50);
-	
-	allWins = append( &baseScr, allWins );
 	
 	defaultBorder.size = 1;
 	defaultBorder.bottom = ACS_HLINE;
@@ -66,6 +62,8 @@ void init(){
 	baseScr.borderSize = 0;
 	baseScr.xpos = 0;
 	baseScr.ypos = 0;
+
+	set_Win_list( cons(&baseScr, NULL) );
 	
 	currentState.toPrint[0] = '$'; 
 	currentState.toPrint[1] = 0;
@@ -583,9 +581,6 @@ int main(int argc, char **argv){
 
 	popupWin = create_Win( LINES/2 - 5, COLS/2 - 20, 10, 40 );
 
-	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
-	highlight_menu_line(popupWin, highlight, true);
-
 	keypad(baseScr.ptr, 1);
 	keypad(drawWin->ptr, 1);
 	keypad(popupWin->ptr, 1);
@@ -602,6 +597,9 @@ int main(int argc, char **argv){
 	update_hud();
 	
 	wmove(drawWin->ptr, starty, startx);
+
+	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
+	highlight_menu_line(popupWin, highlight, true);
 
 	currentState.focus = popupWin;
 
@@ -646,7 +644,7 @@ int main(int argc, char **argv){
 			}
 			if( currentState.mode != NORMAL && currentState.focus == drawWin ){
 				if( currentState.mode == DELETE || ( currentState.mode == STICKY && inp == KEY_BACKSPACE ) ){
-					mvwaddchstr(drawWin->ptr, dy, dx , emptyChar); 
+					mvwaddch(drawWin->ptr, dy, dx , emptyChar); 
 				}
 				else{
 					if( currentState.mode == INSERT || (currentState.mode == STICKY && inp == ENTER) ) mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);

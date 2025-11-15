@@ -4,6 +4,8 @@
 #include "list.h"
 #include <curses.h>
 
+static WinList allWins;
+
 WinBorder defaultBorder = {
 	1,
 	0,
@@ -25,7 +27,16 @@ Win baseScr = {
 	0,
 };
 
-chtype emptyChar[2] = {' ', 0};
+WinList get_Win_list();
+chtype emptyChar = {' '};
+
+void set_Win_list(WinList list){
+	allWins = list;
+}
+
+WinList get_Win_list(){
+	return allWins;
+}
 
 void end_screen(){
 	endwin();
@@ -120,7 +131,8 @@ Win *create_Win(int posy, int posx, int height, int width){
 
 int move_Win( Win *win, int posy, int posx){
 	if( mvwin( win->ptr, posy, posx) == OK ){
-		// remove_window( win );
+		remove_window( win );
+		win->hidden = 0;
 		win->xpos = posx;
 		win->ypos = posy;
 		touchwin( win->ptr );
