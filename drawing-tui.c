@@ -1,14 +1,9 @@
 /* triangle.c */
 #include <curses.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include "list.h"
 #include "tuiWrapper.h"
 
 #define ESC 27
@@ -31,16 +26,15 @@ typedef struct{
 	u_int b;
 } RGB;
 
-typedef struct {
+typedef struct state_t{
 	char toPrint[MAXINPUT];
 	MODE mode;
 	u_int chMask;
 	Win* focus;
+	Win* theDrawWin;
 } State;
 
-State currentState;
-
-void init(){
+void init(State *state){
 	initscr();
 	cbreak();
 	noecho();
@@ -65,11 +59,12 @@ void init(){
 
 	set_Win_list( cons(&baseScr, NULL) );
 	
-	currentState.toPrint[0] = '$'; 
-	currentState.toPrint[1] = 0;
-	currentState.mode = NORMAL;
-	currentState.chMask = 0;
-	currentState.focus = &baseScr;
+	state->toPrint[0] = '$'; 
+	state->toPrint[1] = 0;
+	state->mode = NORMAL;
+	state->chMask = 0;
+	state->focus = &baseScr;
+	state->theDrawWin = &baseScr;
 }
 
 MODE get_mode(MODE curr_mode, int key ){
@@ -123,7 +118,7 @@ void get_mode_nstring(char* dest, MODE mode, int maxlen){
 	}
 }
 
-void update_hud(){
+void update_hud(State currentState){
 	char string[MAXINPUT];
 	char modeString[8];
 
@@ -163,37 +158,29 @@ void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **opt
 }
 
 
-void print_input_menu(int posy, int posx, int width, WinBorder border, char* printPrompt, char* optional_message){
-	int i, height, len, inputChar;
+void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optional_message){
+	int centerXpos, len, inputChar;
 	char prompt[200];
-	strncpy(prompt, printPrompt, 200);
 	
-	curs_set(1);
+	winborder(win, border);
 
-	height = 3; 
-	
-	mvaddch(posy, posx, border.topLeft_corner);
-	mvaddch(posy + height-1, posx, border.bottomLeft_corner);
-	mvaddch(posy, posx + width-1, border.topRight_corner);
-	mvaddch(posy + height-1, posx + width -1, border.bottomRight_corner);
-	
-	mvhline(posy, posx+1, border.top, width-2);
-	mvhline(posy + height-1 , posx+1, border.bottom, width-2);
-	
-	mvvline(posy+1, posx, border.left, height-2);
-	mvvline(posy+1, posx + width-1, border.right, height-2);
-	
-	len = strlen(printPrompt);
-	
-	if (len > width) prompt[width] = '\0';
-	mvaddstr(posy, posx + (width/2 - len/2), prompt);
+	strncpy(prompt, printPrompt, 200);
+	len = strlen(prompt);
+
+	if (len >= win->cols) prompt[win->cols] = '\0';
+
+	centerXpos = get_xpos_for_string_window( *win, prompt, SIDE_CENTER, 0),
+	mvwaddstr(win->ptr, 0, centerXpos, prompt);
 
 	if(optional_message != NULL){
-		len = strlen(optional_message);
-			if (len > width) optional_message[width] = '\0';
-		mvaddstr(posy + height-1, posx + (width/2 - len/2), optional_message);
+		strncpy(prompt, optional_message, 200);
+		len = strlen(prompt);
+
+		if (len >= win->cols) prompt[win->cols] = '\0';
+
+		centerXpos = get_xpos_for_string_window( *win, prompt, SIDE_CENTER, 0),
+		mvwaddstr(win->ptr, win->lines - 1, centerXpos, optional_message);
 	}
-	refresh();
 	
 	return;
 }
@@ -479,58 +466,69 @@ int change_color_popup(Win* drawWin){
 	return 0;
 }
 
-int handle_enter(Win *window,int optNum){
+int handle_enter(Win *inputMenu,int optNum, State *currentState){
 	int fd;
 	char file_name[MAXINPUT] = {0};
 	int posy, posx;
 	int maxChars;
-
-	posy = LINES/5 * 4;
-	posx = COLS/2 - COLS/8;
-	maxChars = min(MAXINPUT - 1, COLS/4);
+	int width;
+	
+	width = inputMenu->cols - 2;
+	maxChars = min(MAXINPUT - 1, width );
 
 	switch(optNum){
 		case 0:
-			print_input_menu(posy, posx, maxChars + 2, defaultBorder,
-					"Write string to use:", NULL); 
-			read_input_echo(posy + 1, posx + 1, currentState.toPrint, maxChars); 
-			clear_area(posy, posx, 3, maxChars + 2);
-			
+			setup_input_menu(inputMenu, defaultBorder, "Write string to use:", NULL); 
+			show_Win(inputMenu);
+
+			curs_set(1);
+			wread_input_echo(inputMenu, 1, 1, currentState->toPrint, maxChars); 
 			curs_set(0);
-			update_hud();
+			
+			remove_window(inputMenu);
+			update_hud(*currentState);
 			break;
 		case 1:
-			if( has_colors() ) change_color_popup(window);
+			if( has_colors() ) change_color_popup(currentState->theDrawWin);
 			else show_message_top_left("This terminal does not have the capability for colors");
 			break;
 		case 2:
-			if ( (currentState.chMask & A_REVERSE) == A_REVERSE ) currentState.chMask = currentState.chMask & !A_REVERSE;
-			else currentState.chMask = currentState.chMask | A_REVERSE;
-			wattrset(window->ptr, currentState.chMask);
+			if ( (currentState->chMask & A_REVERSE) == A_REVERSE ) currentState->chMask = currentState->chMask & !A_REVERSE;
+			else currentState->chMask = currentState->chMask | A_REVERSE;
+			wattrset(currentState->theDrawWin->ptr, currentState->chMask);
 			break;
 		case 3:
-			currentState.mode = (currentState.mode == STICKY)? NORMAL : STICKY;
+			currentState->mode = (currentState->mode == STICKY)? NORMAL : STICKY;
 			break;
 		case 4:
-			print_input_menu(posy, posx, maxChars + 2, defaultBorder,
-					"Insert file name (current directory):", "Esc to cancel");
-			read_input_echo(posy + 1, posx + 1, file_name, maxChars); 
-			clear_area(posy, posx, 3, maxChars + 2);
+			setup_input_menu(inputMenu, defaultBorder,
+					"Insert file name (current directory):", "Esc to cancel"); 
+			show_Win(inputMenu);
+
+			curs_set(1);
+			wread_input_echo(inputMenu, 1, 1, file_name, maxChars); 
+			curs_set(0);
+			
+			remove_window(inputMenu);
 			
 			if(file_name[0] != 0){
-				load_image_from_file(window, file_name);
+				load_image_from_file(currentState->theDrawWin, file_name);
 				return 1;
 			}
 			break;
 		case 5:
-			print_input_menu(posy, posx, maxChars + 2, defaultBorder,
-					"Insert file name (current directory):", "Esc to cancel");
-			read_input_echo(posy + 1, posx + 1, file_name, maxChars); 
-			clear_area(posy, posx, 3, maxChars + 2);
+			setup_input_menu(inputMenu, defaultBorder,
+					"Insert file name (current directory):", "Esc to cancel"); 
+			show_Win(inputMenu);
+
+			curs_set(1);
+			wread_input_echo(inputMenu, 1, 1, file_name, maxChars); 
 			curs_set(0);
 			
+			remove_window(inputMenu);
+			
 			if(file_name[0] != 0){
-				save_drawing_to_file(window, file_name);
+				save_drawing_to_file(currentState->theDrawWin, file_name);
 			}
 			break;
 		case 6:
@@ -551,11 +549,12 @@ int main(int argc, char **argv){
 	int inp;
 	int optionSelected;
 	int highlight;
-	Win *popupWin, *drawWin;
+	Win *popupWin, *drawWin, *inputMenu;
+	State currentState;
 
 	/* initialize curses */
 
-	init();
+	init(&currentState);
 
 	if( has_colors() ){
 		start_color();
@@ -564,6 +563,9 @@ int main(int argc, char **argv){
 
 	//initialize drawWin
 	drawWin = create_Win(1, 1, LINES - 2, COLS - 2);
+
+	currentState.theDrawWin = drawWin;
+
 	wrefresh(drawWin->ptr);
 
 	//initialize popupWin
@@ -580,10 +582,14 @@ int main(int argc, char **argv){
 	int numOptions = 8;
 
 	popupWin = create_Win( LINES/2 - 5, COLS/2 - 20, 10, 40 );
+	
+	//initialize inputMenu
+	inputMenu = create_Win( LINES * 3 / 4 , COLS*1/3, 3, COLS*1/3 );
 
 	keypad(baseScr.ptr, 1);
 	keypad(drawWin->ptr, 1);
 	keypad(popupWin->ptr, 1);
+	keypad(inputMenu->ptr, 1);
 
 	starty = drawWin->lines / 2;
 	startx = drawWin->cols / 2;
@@ -594,7 +600,7 @@ int main(int argc, char **argv){
 
 	//Not exactly a border but more of a style choice, so no use of winborder.
 	box(stdscr,0,0);
-	update_hud();
+	update_hud(currentState);
 	
 	wmove(drawWin->ptr, starty, startx);
 
@@ -639,7 +645,7 @@ int main(int argc, char **argv){
 						currentState.toPrint[0] = inp;
 						currentState.toPrint[1] = 0;
 					}
-					update_hud();
+					update_hud(currentState);
 					break;
 			}
 			if( currentState.mode != NORMAL && currentState.focus == drawWin ){
@@ -656,8 +662,8 @@ int main(int argc, char **argv){
 		if( currentState.focus == popupWin ){
 			//MENU navigation
 			while( (optionSelected = option_picker(popupWin, numOptions, &highlight)) >= 0 ){
-				if (handle_enter(drawWin, optionSelected) == 0){
-					update_hud();
+				if (handle_enter(inputMenu, optionSelected, &currentState) == 0){
+					update_hud(currentState);
 				}
 				else{
 					currentState.focus = drawWin;

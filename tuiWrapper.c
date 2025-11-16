@@ -103,6 +103,12 @@ void remove_window(Win *win){
 	}
 }
 
+void show_Win( Win* win ){
+	win->hidden = 0;
+	touchwin( win->ptr );
+	wrefresh( win->ptr );
+}
+
 void delete_Win(Win *win){
 	remove_window(win);
 	delwin(win->ptr);
@@ -207,6 +213,8 @@ void wread_input_echo(Win* win, int y, int x, char *result, int max){
 	int inputChar;
 	char temp[MAXINPUT] = {0};
 	int i;
+
+	curs_set(1);
 
 	max = min(MAXINPUT, max);
 

@@ -79,6 +79,8 @@ void end_screen();
 
 void remove_window( Win *win );
 
+void show_Win( Win *win );
+
 void delete_Win( Win *win );
 
 int move_Win( Win *win, int posy, int posx );
