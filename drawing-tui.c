@@ -140,7 +140,7 @@ void update_hud(State currentState){
 
 void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **options, int numOptions, SIDE text_centering){
 	int y, x;
-	winborder(window, defaultBorder);
+	border_Win(window, defaultBorder);
 	
 	if(options != NULL){
 		numOptions = (numOptions > window->lines - window->borderSize*2)? window->lines - window->borderSize*2 : numOptions;
@@ -162,7 +162,7 @@ void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optio
 	int centerXpos, len, inputChar;
 	char prompt[200];
 	
-	winborder(win, border);
+	border_Win(win, border);
 
 	strncpy(prompt, printPrompt, 200);
 	len = strlen(prompt);
@@ -437,12 +437,12 @@ int change_color_popup(Win* drawWin){
 		curs_set(1);
 		switch(optionSelected){
 			case 0:
-				wread_input_echo(color_win, posYHex, posLetterHex, hex_code, 6);
+				read_input_echo(color_win, posYHex, posLetterHex, hex_code, 6);
 				pad_string_with_char(hex_code, '0', 6);
 				mvwaddstr(color_win->ptr, posYHex, posLetterHex, hex_code);
 				break;
 			case 1:
-				wread_input_echo(color_win, posYHex, posBackHex, hex_code, 6);
+				read_input_echo(color_win, posYHex, posBackHex, hex_code, 6);
 				pad_string_with_char(hex_code, '0', 6);
 				mvwaddstr(color_win->ptr, posYHex, posBackHex, hex_code);
 				break;
@@ -482,7 +482,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			show_Win(inputMenu);
 
 			curs_set(1);
-			wread_input_echo(inputMenu, 1, 1, currentState->toPrint, maxChars); 
+			read_input_echo(inputMenu, 1, 1, currentState->toPrint, maxChars); 
 			curs_set(0);
 			
 			remove_window(inputMenu);
@@ -506,7 +506,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			show_Win(inputMenu);
 
 			curs_set(1);
-			wread_input_echo(inputMenu, 1, 1, file_name, maxChars); 
+			read_input_echo(inputMenu, 1, 1, file_name, maxChars); 
 			curs_set(0);
 			
 			remove_window(inputMenu);
@@ -522,7 +522,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			show_Win(inputMenu);
 
 			curs_set(1);
-			wread_input_echo(inputMenu, 1, 1, file_name, maxChars); 
+			read_input_echo(inputMenu, 1, 1, file_name, maxChars); 
 			curs_set(0);
 			
 			remove_window(inputMenu);
@@ -598,7 +598,7 @@ int main(int argc, char **argv){
 
 	highlight = 0;
 
-	//Not exactly a border but more of a style choice, so no use of winborder.
+	//Not exactly a border but more of a style choice, so no use of border_Win.
 	box(stdscr,0,0);
 	update_hud(currentState);
 	

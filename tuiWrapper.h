@@ -45,31 +45,11 @@ struct Win{
 	int hidden;
 };
 
-//typedef struct {
-//	int mode;
-//	char toPrint[20];
-//	int BITMASK;
-//	int dx;
-//	int dy;
-//} state;
-
 typedef enum {
 	SIDE_LEFT,
 	SIDE_CENTER,
 	SIDE_RIGHT,
 } SIDE;
-
-//typedef enum{
-//	TOP_LEFT,
-//	TOP_CENTER,
-//	TOP_RIGHT,
-//	MIDDLE_LEFT,
-//	MIDDLE_CENTER,
-//	MIDDLE_RIGHT,
-//	BOTTOM_LEFT,
-//	BOTTOM_CENTER,
-//	BOTTOM_RIGHT,
-//} POSITION;
 
 void set_Win_list( WinList list );
 
@@ -89,9 +69,9 @@ void clear_Win( Win *win );
 
 Win *create_Win( int posy, int posx, int height, int width );
 
-void winborder(Win *window, WinBorder border);
+void border_Win(Win *window, WinBorder border);
 
-void winborder_offset(Win *window, WinBorder border, int offset);
+void border_Win_offset(Win *window, WinBorder border, int offset);
 
 void clear_area(int posy, int posx, int height, int width);
 
@@ -99,7 +79,6 @@ int get_xpos_for_string_size(int width, char *string, SIDE side, int offset);
 
 int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset);
 
-void wread_input_echo(Win *win, int y, int x, char *result, int max);
+void read_input_echo(Win *win, int y, int x, char *result, int max);
 
-#define read_input_echo(y, x, result, max); wread_input_echo(&baseScr, y, x, result, max);
 #endif

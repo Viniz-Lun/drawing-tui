@@ -27,7 +27,6 @@ Win baseScr = {
 	0,
 };
 
-WinList get_Win_list();
 chtype emptyChar = {' '};
 
 void set_Win_list(WinList list){
@@ -54,23 +53,14 @@ void clear_Win(Win *win){
 }
 
 int posy_first_intersect(Win* Awin, Win* Bwin){
-	//int miny;
 	if( Awin->ypos >= Bwin->ypos && Awin->ypos <= (Bwin->ypos + Bwin->lines) ){
-		//miny = Awin->ypos;
 		return Awin->ypos;
 	}
 	else{
 		if( Bwin->ypos >= Awin->ypos && Bwin->ypos <= (Awin->ypos + Awin->lines) ) 
-			//miny = Bwin->ypos;
 			return Bwin->ypos;
 		else return -1;
 	}
-
-	//if( Awin->xpos >= Bwin->xpos && Awin->xpos <= (Bwin->xpos + Bwin->cols) ||
-	//		Bwin->xpos >= Awin->xpos && Bwin->xpos <= (Awin->xpos + Awin->cols) ){
-	//	return miny;
-	//}
-	//return -1;
 }
 
 int num_lines_intersect(Win* Awin, Win* Bwin){
@@ -147,7 +137,7 @@ int move_Win( Win *win, int posy, int posx){
 	return ERR;
 }
 
-void winborder(Win *window, WinBorder border){
+void border_Win(Win *window, WinBorder border){
 	window->borderSize = border.size;
 	wborder(window->ptr, border.left, border.right, border.top, border.bottom,
 			border.topLeft_corner, border.topRight_corner, border.bottomLeft_corner, border.bottomRight_corner);
@@ -165,7 +155,7 @@ void winborder(Win *window, WinBorder border){
 	return;
 }
 
-void winborder_offset(Win *window, WinBorder border, int offset){
+void border_Win_offset(Win *window, WinBorder border, int offset){
 	if(window->borderSize < offset + border.size) window->borderSize = offset + border.size;
 	for (int i= offset; i < border.size + offset; i++){
 		mvwhline(window->ptr, i, i, border.top, window->cols - i*2);
@@ -209,7 +199,7 @@ int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset){
 	else return get_xpos_for_string_size(window.cols, string, side, window.borderSize + offset);
 }
 
-void wread_input_echo(Win* win, int y, int x, char *result, int max){
+void read_input_echo(Win* win, int y, int x, char *result, int max){
 	int inputChar;
 	char temp[MAXINPUT] = {0};
 	int i;
