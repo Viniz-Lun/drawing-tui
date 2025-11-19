@@ -1,15 +1,17 @@
 /* triangle.c */
 #include <curses.h>
 #include <fcntl.h>
-#include <string.h>
 #include <unistd.h>
 
 #include "tuiWrapper.h"
 
 #define ESC 27
 #define ENTER 10
-#define COLOR_PREVIEW 255
+#define COLOR_FG_PREVIEW 255
+#define COLOR_BG_PREVIEW 254
+#define FIRST_COLOR 8
 #define FIRST_PAIR 1
+#define LAST_PAIR 127
 
 typedef enum {
 	INSERT,
@@ -21,9 +23,9 @@ typedef enum {
 } MODE;
 
 typedef struct{
-	u_int r;
-	u_int g;
-	u_int b;
+	short r;
+	short g;
+	short b;
 } RGB;
 
 typedef struct state_t{
@@ -85,10 +87,13 @@ MODE get_mode(MODE curr_mode, int key ){
 	}
 }
 
-void show_message_top_left(char* message){
+void show_message_top_left(char* message, int *value){
 	mvaddch(0, 0, ACS_ULCORNER);
 	mvhline(0, 1, ACS_HLINE, COLS - 2);
 	mvaddstr(0, 2, message);
+	if( value != NULL ){
+		mvprintw(0, strlen(message), "%d", *value);
+	}
 	refresh();
 }
 
@@ -124,9 +129,9 @@ void update_hud(State currentState){
 
 	mvhline(LINES - 1, 1, ACS_HLINE, COLS - 2);
 
-	strncpy(string, " PALETTE: $  ", MAXINPUT);
+	strncpy(string, " PALETTE:  ", MAXINPUT);
 	mvaddstr(LINES - 1, get_xpos_for_string_window(baseScr, string, SIDE_LEFT, 1), string);
-	mvaddch( LINES - 1, get_xpos_for_string_size(LINES, "", SIDE_LEFT, strlen(string) - 1), ' ' | currentState.chMask );
+	mvaddch( LINES - 1, get_xpos_for_string_size(LINES, "", SIDE_LEFT, strlen(string) - 1), '$' | currentState.chMask );
 
 	sprintf(string, " Brush: '%s' ", currentState.toPrint);
 	mvaddstr(LINES - 1, get_xpos_for_string_size(COLS, string, SIDE_CENTER, 0), string);
@@ -162,6 +167,7 @@ void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optio
 	int centerXpos, len, inputChar;
 	char prompt[200];
 	
+	clear_Win(win);
 	border_Win(win, border);
 
 	strncpy(prompt, printPrompt, 200);
@@ -197,7 +203,7 @@ int save_drawing_to_file(Win *window, char *file_name){
 	if (fd < 0){
 		strncpy(stringExitMsg, " Error opening/creating the file ", 32);
 		perror(stringExitMsg);
-		show_message_top_left(stringExitMsg);
+		show_message_top_left(stringExitMsg, NULL);
 		refresh();
 		free(buffer);
 		return 1;
@@ -211,7 +217,7 @@ int save_drawing_to_file(Win *window, char *file_name){
 	free(buffer);
 	close(fd);
 	sprintf(stringExitMsg, " Done saving file, size: %lu ", window->cols * window->lines * sizeof(char) + sizeof(char) * window->lines );
-	show_message_top_left(stringExitMsg);
+	show_message_top_left(stringExitMsg, NULL);
 	refresh();
 	return 0;
 }
@@ -227,7 +233,7 @@ int load_image_from_file(Win *window, char *file_name){
 	if (fd < 0){
 		mvhline(0, 0, COLS, ' ');
 		strncpy(stringExitMsg, " Error opening the file ", 32);
-		show_message_top_left(stringExitMsg);
+		show_message_top_left(stringExitMsg, NULL);
 		refresh();
 		return 1;
 	}
@@ -264,7 +270,7 @@ int load_image_from_file(Win *window, char *file_name){
 		strncpy(stringExitMsg, "Error reading from file", 31);
 	}
 
-	show_message_top_left(stringExitMsg);
+	show_message_top_left(stringExitMsg, NULL);
 	refresh();
 	return 0;
 }
@@ -388,79 +394,176 @@ int option_picker(Win* win, int numOptions, int* hover){
 	return -10;
 }
 
-void pad_string_with_char(char* result, char c, int maxlen){
+void pad_string_with_char_right(char* result, char c, int maxlen){
 	int i;
 	for( i = 0; i < maxlen && result[i] != '\0'; i++ );
 	if ( i < maxlen ){
 		for(; i < maxlen ; i++ ){
-			result[i] = '0';
+			result[i] = c;
 		}
 		result[i] = '\0';
 	}
 	else return;
-
 }
 
-//RGB hex_parse(char* hexCode){
-//	return (RGB){ 900, 100, 100 };
-//}
+void pad_string_with_char_left(char* result, char c, int maxlen){
+	int i;
+	int len;
+	int numOfC;
+	len = strlen(result);
+	numOfC = maxlen - len;
 
+	if( len >= maxlen ) return;
+	
+	result[maxlen] = '\0';
+	for( i = 0; i < len; i++ ){
+		result[ (maxlen - 1) - i ] = result[ (len-1) - i];
+		result[ (len-1) - i ] = c;
+	}
+	for( ; i < numOfC; i++ ){
+		result[i] = c;
+	}
+	return;
+}
 
-int change_color_popup(Win* drawWin){
+#define round_up_division_int( NUM, DENUM ) ((int)(NUM / DENUM) + (NUM % DENUM > 0))
+
+void parse_to_hex(char *result, RGB rgb){
+	int value;
+	int tempValue;
+	value = 0;
+	tempValue = rgb.r * 255;
+	value += round_up_division_int(tempValue, 1000) << 16;
+	tempValue = rgb.g * 255;
+	value += round_up_division_int(tempValue, 1000) << 8;
+	tempValue = rgb.b * 255;
+	value += round_up_division_int(tempValue, 1000);
+	snprintf(result, 7, "%X", value);
+}
+
+int hex_parse(char* hexCode, RGB *rgb){
+	int value;
+	float f;
+	for( int i = 0; i < 6; i++){
+		if(! ( isDigit(hexCode[i]) ||
+				(hexCode[i] >= 'a' && hexCode[i] <= 'f') ||
+				(hexCode[i] >= 'A' && hexCode[i] <= 'F') 
+				) ) return 0;
+	}
+	value = strtol(hexCode, NULL, 16);
+	rgb->b = (value & 0xff);
+	rgb->g = ((value >> 8) & 0xff); 
+	rgb->r = (value >> 16);
+
+	rgb->r = ((rgb->r * 1000) / 255);
+	rgb->g = ((rgb->g * 1000) / 255);
+	rgb->b = ((rgb->b * 1000) / 255);
+
+	return 1;
+}
+
+//TO-DO
+short make_new_color_pair(short pairNumber, RGB foreground, RGB background, void* color_list){
+	//temp function
+	static short numOfColor = 8;
+	init_color(numOfColor, foreground.r, foreground.g, foreground.b);
+	init_color(++numOfColor, background.r, background.g, background.b);
+	init_pair( pairNumber, numOfColor - 1, numOfColor);
+	numOfColor++;
+	return pairNumber;
+}
+
+int change_color_popup(State *currentState){
 	Win* color_win;
-	char hex_code[7];
-	RGB rgb1;
-	RGB rgb2;
+	char hexCodeFg[7];
+	char hexCodeBg[7];
+	RGB rgb1 = {1000,1000,1000};
+	RGB rgb2 = {0,0,0};
 	int optionSelected = 0;
 	int posLetterHex;
 	int posBackHex;
 	int posYHex;
+	int isValid;
+	int confirm;
+	short newPair;
 	char *color_options[] ={
 		"Choose letter color",
 		"Choose background color",
+		"Confirm current choice",
 	};
 
 	color_win = create_Win(10,10,10,30);
-	setup_menu_popup(color_win, "| Color picker |", SIDE_CENTER, color_options, 2, SIDE_LEFT);
-	wrefresh(color_win->ptr);
-	curs_set(1);
+	setup_menu_popup(color_win, "| Color picker |", SIDE_CENTER, color_options, 3, SIDE_LEFT);
+
+	if( PAIR_NUMBER(currentState->chMask) == 0 ){
+		init_color(COLOR_FG_PREVIEW, 666, 666, 666);
+		init_color(COLOR_BG_PREVIEW, 90, 90, 117);
+		init_pair( 127, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
+	}
+
+	wattron(color_win->ptr, COLOR_PAIR(127));
+	mvwaddstr( color_win->ptr, color_win->lines /2, color_win->cols/2 - 2, "$$$");
+	wattroff(color_win->ptr, COLOR_PAIR(127));
+
 	posYHex = color_win->lines - color_win->borderSize - 1;
 	posLetterHex = color_win->borderSize + 2;
 	posBackHex = color_win->cols - color_win->borderSize - 7;
 
-	mvwaddstr(color_win->ptr, posYHex, posLetterHex - 1, "#000000");
-	mvwaddstr(color_win->ptr, posYHex, posBackHex - 1, "#000000");
+	mvwaddch(color_win->ptr, posYHex, posLetterHex - 1, '#');
+	mvwaddch(color_win->ptr, posYHex, posBackHex - 1, '#');
+	
+	color_content(COLOR_FG_PREVIEW, &rgb1.r, &rgb1.g, &rgb1.b);
+	color_content(COLOR_BG_PREVIEW, &rgb2.r, &rgb2.g, &rgb2.b);
 
-	hex_code[0] = '\0';
+	parse_to_hex(hexCodeFg , rgb1);
+	parse_to_hex(hexCodeBg , rgb2);
 
-	while( (optionSelected = option_picker(color_win, 2, &optionSelected)) >= 0 ){
+	pad_string_with_char_left(hexCodeBg, '0', 6);
+	pad_string_with_char_left(hexCodeFg, '0', 6);
+
+	mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
+	mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
+
+	while( (optionSelected = option_picker(color_win, 3, &optionSelected)) >= 0 ){
 		curs_set(1);
 		switch(optionSelected){
 			case 0:
-				read_input_echo(color_win, posYHex, posLetterHex, hex_code, 6);
-				pad_string_with_char(hex_code, '0', 6);
-				mvwaddstr(color_win->ptr, posYHex, posLetterHex, hex_code);
+				confirm = read_input_echo(color_win, posYHex, posLetterHex, hexCodeFg, 6);
+				pad_string_with_char_right(hexCodeFg, '0', 6);
+				isValid = hex_parse(hexCodeFg, &rgb1);
+				mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
 				break;
 			case 1:
-				read_input_echo(color_win, posYHex, posBackHex, hex_code, 6);
-				pad_string_with_char(hex_code, '0', 6);
-				mvwaddstr(color_win->ptr, posYHex, posBackHex, hex_code);
+				confirm = read_input_echo(color_win, posYHex, posBackHex, hexCodeBg, 6);
+				pad_string_with_char_right(hexCodeBg, '0', 6);
+				isValid = hex_parse(hexCodeBg, &rgb2);
+				mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
+				break;
+			case 2: 
+				newPair = PAIR_NUMBER(currentState->chMask);
+				currentState->chMask = currentState->chMask & ~COLOR_PAIR(newPair);
+				newPair = make_new_color_pair(newPair+ 1, rgb1, rgb2, NULL);
+				currentState->chMask = currentState->chMask | COLOR_PAIR(newPair);
+				wattrset(currentState->theDrawWin->ptr, currentState->chMask);
 				break;
 			default:
 				break;
 		}
-		hex_code[0] = '\0';
+		if( isValid && confirm){
+			mvwhline( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, ' ', 14);
+			init_color(COLOR_FG_PREVIEW, rgb1.r, rgb1.g, rgb1.b);
+			init_color(COLOR_BG_PREVIEW, rgb2.r, rgb2.g, rgb2.b);
+			init_pair( 127, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
+		}
+		else{
+			if( confirm ) mvwaddstr( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, "Hex not valid");
+		}
+		wrefresh(color_win->ptr);
 	}
 	if( optionSelected == -2 ){
 		end_screen();
 		exit(0);
 	}
-
-	init_color(COLOR_RED, rgb1.r, rgb1.g, rgb1.b);
-	init_color(COLOR_BLUE, rgb2.r, rgb2.g, rgb2.b);
-	init_pair( 1, COLOR_RED, COLOR_BLUE);
-	
-	wattron(drawWin->ptr, COLOR_PAIR(1));
 
 	delete_Win(color_win);
 	return 0;
@@ -489,11 +592,11 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			update_hud(*currentState);
 			break;
 		case 1:
-			if( has_colors() ) change_color_popup(currentState->theDrawWin);
-			else show_message_top_left("This terminal does not have the capability for colors");
+			if( has_colors() ) change_color_popup(currentState);
+			else show_message_top_left("This terminal does not have the capability for colors", NULL);
 			break;
 		case 2:
-			if ( (currentState->chMask & A_REVERSE) == A_REVERSE ) currentState->chMask = currentState->chMask & !A_REVERSE;
+			if ( (currentState->chMask & A_REVERSE) == A_REVERSE ) currentState->chMask = currentState->chMask & ~A_REVERSE;
 			else currentState->chMask = currentState->chMask | A_REVERSE;
 			wattrset(currentState->theDrawWin->ptr, currentState->chMask);
 			break;
@@ -560,7 +663,6 @@ int main(int argc, char **argv){
 		start_color();
 	}
 
-
 	//initialize drawWin
 	drawWin = create_Win(1, 1, LINES - 2, COLS - 2);
 
@@ -611,7 +713,6 @@ int main(int argc, char **argv){
 
 	for(;;){
 		if(currentState.focus == drawWin){
-			///show_message_top_left("before wgetch drawWin");
 			inp = wgetch(drawWin->ptr);
 			switch(inp){
 				case KEY_F(1):
@@ -650,7 +751,7 @@ int main(int argc, char **argv){
 			}
 			if( currentState.mode != NORMAL && currentState.focus == drawWin ){
 				if( currentState.mode == DELETE || ( currentState.mode == STICKY && inp == KEY_BACKSPACE ) ){
-					mvwaddch(drawWin->ptr, dy, dx , emptyChar); 
+					mvwaddchnstr(drawWin->ptr, dy, dx , &emptyChar, 1); 
 				}
 				else{
 					if( currentState.mode == INSERT || (currentState.mode == STICKY && inp == ENTER) ) mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);

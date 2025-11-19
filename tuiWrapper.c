@@ -199,7 +199,7 @@ int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset){
 	else return get_xpos_for_string_size(window.cols, string, side, window.borderSize + offset);
 }
 
-void read_input_echo(Win* win, int y, int x, char *result, int max){
+int read_input_echo(Win* win, int y, int x, char *result, int max){
 	int inputChar;
 	char temp[MAXINPUT] = {0};
 	int i;
@@ -227,10 +227,11 @@ void read_input_echo(Win* win, int y, int x, char *result, int max){
 	
 	temp[i] = '\0';
 	
-	if (inputChar != 27 && inputChar != KEY_F(1)) strncpy(result, temp, max);
-	
-	return;
-
+	if (inputChar != 27 && inputChar != KEY_F(1)){
+		strncpy(result, temp, max);
+		return 1;
+	}
+	return 0;
 }
 
 

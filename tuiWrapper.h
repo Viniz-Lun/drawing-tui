@@ -79,6 +79,6 @@ int get_xpos_for_string_size(int width, char *string, SIDE side, int offset);
 
 int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset);
 
-void read_input_echo(Win *win, int y, int x, char *result, int max);
+int read_input_echo(Win *win, int y, int x, char *result, int max);
 
 #endif
