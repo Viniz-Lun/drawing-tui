@@ -1,19 +1,22 @@
 #include "custom-utils.h"
 
-void parse_to_hex(char *result, RGB rgb){
+void RGB_to_hex(char *result, RGB rgb){
 	int value;
 	int tempValue;
 	value = 0;
+
 	tempValue = rgb.r * 255;
 	value += round_up_division_int(tempValue, 1000) << 16;
 	tempValue = rgb.g * 255;
 	value += round_up_division_int(tempValue, 1000) << 8;
 	tempValue = rgb.b * 255;
 	value += round_up_division_int(tempValue, 1000);
+
 	snprintf(result, 7, "%X", value);
+	pad_string_with_char_left(result, 0, 6);
 }
 
-int hex_parse(char* hexCode, RGB *rgb){
+int hex_to_RGB(char* hexCode, RGB *rgb){
 	int value;
 	float f;
 	for( int i = 0; i < 6; i++){

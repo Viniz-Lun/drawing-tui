@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "RGB.h"
 #include "custom-utils.h"
 #include "tuiWrapper.h"
 
@@ -26,7 +27,7 @@ typedef enum {
 typedef struct state_t{
 	char toPrint[MAXINPUT];
 	MODE mode;
-	u_int chMask;
+	attr_t chMask;
 	Win* focus;
 	Win* theDrawWin;
 } State;
@@ -389,37 +390,19 @@ int option_picker(Win* win, int numOptions, int* hover){
 	return -10;
 }
 
-int change_color_popup(State *currentState){
-	Win* color_win;
-	char hexCodeFg[7];
-	char hexCodeBg[7];
-	RGB rgb1 = {1000,1000,1000};
-	RGB rgb2 = {0,0,0};
-	int optionSelected = 0;
-	int posLetterHex;
-	int posBackHex;
-	int posYHex;
-	int isValid;
-	int confirm;
-	short newPair;
+void setup_color_menu(Win* color_win){
 	char *color_options[] ={
 		"Choose letter color",
 		"Choose background color",
 		"Confirm",
 	};
+	int posLetterHex, posBackHex, posYHex;
 
-	color_win = create_Win(10,10,10,30);
 	setup_menu_popup(color_win, "| Color picker |", SIDE_CENTER, color_options, 3, SIDE_LEFT);
 
-	if( PAIR_NUMBER(currentState->chMask) == 0 ){
-		init_color(COLOR_FG_PREVIEW, 666, 666, 666);
-		init_color(COLOR_BG_PREVIEW, 90, 90, 117);
-		init_pair( 127, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
-	}
-
-	wattron(color_win->ptr, COLOR_PAIR(127));
+	wattron(color_win->ptr, COLOR_PAIR(LAST_PAIR));
 	mvwaddstr( color_win->ptr, color_win->lines /2, color_win->cols/2 - 2, "$$$$");
-	wattroff(color_win->ptr, COLOR_PAIR(127));
+	wattroff(color_win->ptr, COLOR_PAIR(LAST_PAIR));
 
 	posYHex = color_win->lines - color_win->borderSize - 1;
 	posLetterHex = color_win->borderSize + 2;
@@ -427,58 +410,91 @@ int change_color_popup(State *currentState){
 
 	mvwaddch(color_win->ptr, posYHex, posLetterHex - 1, '#');
 	mvwaddch(color_win->ptr, posYHex, posBackHex - 1, '#');
-	
+
+	return;
+}
+
+attr_t get_attr_off(attr_t current, attr_t toTurnOff){
+	return current & ~toTurnOff;
+}
+
+attr_t get_attr_on(attr_t current, attr_t toTurnOff){
+	return current | toTurnOff;
+}
+
+int change_color_popup(State *currentState){
+	Win* color_win;
+	RGB rgb1, rgb2;
+	int optionSelected = 0;
+	int isValid, confirm;
+	short newPair;
+	char hexCodeFg[7], hexCodeBg[7];
+	int posLetterHex, posBackHex, posYHex;
+
+	color_win = create_Win(10,10,10,30);
+
+	if( PAIR_NUMBER(currentState->chMask) == 0 ){
+		init_color(COLOR_FG_PREVIEW, 666, 666, 666);
+		init_color(COLOR_BG_PREVIEW, 90, 90, 117);
+		init_pair(LAST_PAIR, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
+	}
+
 	color_content(COLOR_FG_PREVIEW, &rgb1.r, &rgb1.g, &rgb1.b);
 	color_content(COLOR_BG_PREVIEW, &rgb2.r, &rgb2.g, &rgb2.b);
 
-	parse_to_hex(hexCodeFg , rgb1);
-	parse_to_hex(hexCodeBg , rgb2);
-
-	pad_string_with_char_left(hexCodeBg, '0', 6);
-	pad_string_with_char_left(hexCodeFg, '0', 6);
+	posYHex = color_win->lines - color_win->borderSize - 1;
+	posLetterHex = color_win->borderSize + 2;
+	posBackHex = color_win->cols - color_win->borderSize - 7;
+	
+	RGB_to_hex(hexCodeFg , rgb1);
+	RGB_to_hex(hexCodeBg , rgb2);
 
 	mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
 	mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
 
 	while( (optionSelected = option_picker(color_win, 3, &optionSelected)) >= 0 ){
 		curs_set(1);
+
 		switch(optionSelected){
 			case 0:
 				confirm = read_input_echo(color_win, posYHex, posLetterHex, hexCodeFg, 6);
-				pad_string_with_char_right(hexCodeFg, '0', 6);
-				isValid = hex_parse(hexCodeFg, &rgb1);
+				if( confirm ){
+					pad_string_with_char_right(hexCodeFg, '0', 6);
+					isValid = hex_to_RGB(hexCodeFg, &rgb1);
+				}
 				mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
 				break;
 			case 1:
 				confirm = read_input_echo(color_win, posYHex, posBackHex, hexCodeBg, 6);
-				pad_string_with_char_right(hexCodeBg, '0', 6);
-				isValid = hex_parse(hexCodeBg, &rgb2);
+				if( confirm ){
+					pad_string_with_char_right(hexCodeBg, '0', 6);
+					isValid = hex_to_RGB(hexCodeBg, &rgb2);
+				}
 				mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
 				break;
 			case 2: 
 				newPair = PAIR_NUMBER(currentState->chMask);
-				currentState->chMask = currentState->chMask & ~COLOR_PAIR(newPair);
+				currentState->chMask = get_attr_off(currentState->chMask, COLOR_PAIR(newPair));
+
 				newPair = make_new_color_pair(newPair+ 1, rgb1, rgb2, NULL);
-				currentState->chMask = currentState->chMask | COLOR_PAIR(newPair);
+
+				currentState->chMask = get_attr_on(currentState->chMask, COLOR_PAIR(newPair));
 				wattrset(currentState->theDrawWin->ptr, currentState->chMask);
 				break;
 			default:
 				break;
 		}
+
 		if( isValid && confirm){
 			mvwhline( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, ' ', 14);
 			init_color(COLOR_FG_PREVIEW, rgb1.r, rgb1.g, rgb1.b);
 			init_color(COLOR_BG_PREVIEW, rgb2.r, rgb2.g, rgb2.b);
-			init_pair( 127, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
+			init_pair(LAST_PAIR, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
 		}
 		else{
 			if( confirm ) mvwaddstr( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, "Hex not valid");
 		}
 		wrefresh(color_win->ptr);
-	}
-	if( optionSelected == -2 ){
-		end_screen();
-		exit(0);
 	}
 
 	delete_Win(color_win);

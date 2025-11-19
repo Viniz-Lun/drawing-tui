@@ -16,9 +16,9 @@
 #define max(A,B) (A > B)? A : B
 #define isTxt(A,LEN) A[LEN-1] == 't' && A[LEN-2] == 'x' && A[LEN-3] == 't' && A[LEN-4] == '.'
 
-void parse_to_hex(char *result, RGB rgb);
+void RGB_to_hex(char *result, RGB rgb);
 
-int hex_parse(char* hexCode, RGB *rgb);
+int hex_to_RGB(char* hexCode, RGB *rgb);
 
 void pad_string_with_char_right(char* result, char c, int maxlen);
 
