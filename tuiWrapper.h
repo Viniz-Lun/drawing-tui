@@ -3,13 +3,18 @@
 #define TUIWRAPPER_H
 
 #include <curses.h>
-#include <string.h>
 #include "list.h"
+
+#ifndef STRING_H
+	#define STRING_H
+	#include <string.h>
+#endif
+
+#include "RGB.h"
 
 #ifndef MAXINPUT
 	#define MAXINPUT 512
 #endif
-
 
 #define isMasc(A) A >= 'A' && A <= 'Z' 
 #define isMinusc(A) A >= 'A' && A <= 'Z' 
@@ -80,5 +85,7 @@ int get_xpos_for_string_size(int width, char *string, SIDE side, int offset);
 int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset);
 
 int read_input_echo(Win *win, int y, int x, char *result, int max);
+
+short make_new_color_pair(short pairNumber, RGB foreground, RGB background, void* color_list);
 
 #endif

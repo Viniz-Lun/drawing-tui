@@ -1,8 +1,6 @@
 /* tuiWrapper.c */
 
 #include "tuiWrapper.h"
-#include "list.h"
-#include <curses.h>
 
 static WinList allWins;
 
@@ -234,5 +232,14 @@ int read_input_echo(Win* win, int y, int x, char *result, int max){
 	return 0;
 }
 
-
+//TO-DO
+short make_new_color_pair(short pairNumber, RGB foreground, RGB background, void* color_list){
+	//temp function
+	static short numOfColor = 8;
+	init_color(numOfColor, foreground.r, foreground.g, foreground.b);
+	init_color(++numOfColor, background.r, background.g, background.b);
+	init_pair( pairNumber, numOfColor - 1, numOfColor);
+	numOfColor++;
+	return pairNumber;
+}
 
