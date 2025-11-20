@@ -235,7 +235,7 @@ int read_input_echo(Win* win, int y, int x, char *result, int max){
 //TO-DO
 short make_new_color_pair(short pairNumber, RGB foreground, RGB background, void* color_list){
 	//temp function
-	static short numOfColor = 8;
+	static short numOfColor = FIRST_COLOR;
 	init_color(numOfColor, foreground.r, foreground.g, foreground.b);
 	init_color(++numOfColor, background.r, background.g, background.b);
 	init_pair( pairNumber, numOfColor - 1, numOfColor);

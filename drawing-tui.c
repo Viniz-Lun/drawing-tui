@@ -1,6 +1,7 @@
 /* triangle.c */
 #include <curses.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "RGB.h"
@@ -11,7 +12,6 @@
 #define ENTER 10
 #define COLOR_FG_PREVIEW 255
 #define COLOR_BG_PREVIEW 254
-#define FIRST_COLOR 8
 #define FIRST_PAIR 1
 #define LAST_PAIR 127
 
@@ -187,8 +187,7 @@ void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optio
 	return;
 }
 
-int save_drawing_to_file(Win *window, char *file_name){
-	
+int save_drawing_to_file(Win *window, char *file_name, State *currentState){
 	int fd;
 	chtype *buffer;
 	char stringExitMsg[32];
@@ -218,10 +217,59 @@ int save_drawing_to_file(Win *window, char *file_name){
 	return 0;
 }
 
-int load_image_from_file(Win *window, char *file_name){
+void initialize_colors(int fd, State *currentState){
+	char *firstLine, *token, *save_ptr, *ptr;
+	char colors[256];
+	char c;
+	int i, pairNum;
+	RGB fg, bg;
+
+	lseek(fd, 0, SEEK_SET);
+	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ );
+
+	firstLine = (char*) malloc(sizeof(char) * i + 1);
+	if( firstLine == NULL ){ 
+		perror("Errore malloc");
+		return;
+	}
+
+	lseek(fd, 0, SEEK_SET);
+	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ ){
+		firstLine[i] = c;
+	}
+	firstLine[i] = '\0';
+	
+	token = strtok_r(firstLine, ":", &save_ptr);
+	while( token != NULL ){
+		pairNum = atoi( token );
+
+		token = strsep(&save_ptr, "{");
+
+		token = strtok_r(NULL, "}", &save_ptr);
+		strcpy(colors, token);
+
+		ptr = colors;
+		token = strsep( &ptr,  ",");
+		hex_to_RGB(token, &fg);
+		
+		hex_to_RGB(ptr, &bg);
+
+		make_new_color_pair(pairNum, fg, bg, NULL);
+
+		token = strsep(&save_ptr, ",");
+
+		if(save_ptr != NULL) token = strtok_r(NULL, ":", &save_ptr);
+		else break;
+	}
+
+	free( firstLine );
+	return;
+}
+
+int load_image_from_file(Win *window, char *file_name, State *currentState){
 	int fd;
 	int i, j, nread, len;
-	char stringExitMsg[32];
+	char stringExitMsg[65];
 	chtype *bufferPointer;
 	size_t size;
 
@@ -233,6 +281,8 @@ int load_image_from_file(Win *window, char *file_name){
 		refresh();
 		return 1;
 	}
+
+	initialize_colors(fd, currentState);
 
 	len = strlen(file_name);
 
@@ -259,7 +309,7 @@ int load_image_from_file(Win *window, char *file_name){
 	close(fd);
 
 	if (nread >= 0) {
-		snprintf(stringExitMsg, 31, " Done loading file: %s ", file_name);
+		snprintf(stringExitMsg, 64, " Done loading file: %s ", file_name);
 		touchwin(window->ptr);
 	}
 	else {
@@ -547,7 +597,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			remove_window(inputMenu);
 			
 			if(file_name[0] != 0){
-				load_image_from_file(currentState->theDrawWin, file_name);
+				load_image_from_file(currentState->theDrawWin, file_name, currentState);
 				return 1;
 			}
 			break;
@@ -563,7 +613,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			remove_window(inputMenu);
 			
 			if(file_name[0] != 0){
-				save_drawing_to_file(currentState->theDrawWin, file_name);
+				save_drawing_to_file(currentState->theDrawWin, file_name, currentState);
 			}
 			break;
 		case 6:

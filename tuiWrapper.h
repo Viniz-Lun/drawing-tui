@@ -16,6 +16,8 @@
 	#define MAXINPUT 512
 #endif
 
+#define FIRST_COLOR 8
+
 #define isMasc(A) A >= 'A' && A <= 'Z' 
 #define isMinusc(A) A >= 'A' && A <= 'Z' 
 #define isDigit(A) A >= '0' && A <= '9' 
