@@ -1,6 +1,6 @@
 /* tuiWrapper.c */
 
-#include "tuiWrapper.h"
+#include "headers/tuiWrapper.h"
 
 static WinList allWins = NULL;
 

@@ -1,13 +1,12 @@
-/* triangle.c */
+/* drawing-tui.c */
 #include <curses.h>
 #include <fcntl.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
-#include "RGB.h"
-#include "custom-utils.h"
-#include "tuiWrapper.h"
+#include "headers/RGB.h"
+#include "headers/custom-utils.h"
+#include "headers/tuiWrapper.h"
+#include "headers/window-drawing.h"
 
 #define ESC 27
 #define ENTER 10
@@ -147,54 +146,6 @@ void update_hud(State currentState){
 	refresh();
 }
 
-void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **options, int numOptions, SIDE text_centering){
-	int y, x;
-	border_Win(window, defaultBorder);
-	
-	if(options != NULL){
-		numOptions = (numOptions > window->lines - window->borderSize*2)? window->lines - window->borderSize*2 : numOptions;
-		for (int i = 0; i < numOptions; i++){
-			y = i + window->borderSize;
-			x = get_xpos_for_string_window(*window, options[i], text_centering, 0);
-
-			mvwhline( window->ptr, y, window->borderSize, ' ', window->cols - (window->borderSize * 2) );
-			mvwaddnstr( window->ptr, y, x, options[i], window->cols - (window->borderSize * 2) );
-		}
-	}
-
-	x = get_xpos_for_string_window(*window, title, title_centering, 0);
-	mvwaddstr(window->ptr, 0, x, title);
-}
-
-
-void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optional_message){
-	int centerXpos, len, inputChar;
-	char prompt[200];
-	
-	clear_Win(win);
-	border_Win(win, border);
-
-	strncpy(prompt, printPrompt, 200);
-	len = strlen(prompt);
-
-	if (len >= win->cols) prompt[win->cols] = '\0';
-
-	centerXpos = get_xpos_for_string_window( *win, prompt, SIDE_CENTER, 0),
-	mvwaddstr(win->ptr, 0, centerXpos, prompt);
-
-	if(optional_message != NULL){
-		strncpy(prompt, optional_message, 200);
-		len = strlen(prompt);
-
-		if (len >= win->cols) prompt[win->cols] = '\0';
-
-		centerXpos = get_xpos_for_string_window( *win, prompt, SIDE_CENTER, 0),
-		mvwaddstr(win->ptr, win->lines - 1, centerXpos, optional_message);
-	}
-	
-	return;
-}
-
 //TO-DO
 //proto function
 int write_pairs_in_file(int fd, int offset_start, int* pairs){
@@ -206,7 +157,7 @@ int write_pairs_in_file(int fd, int offset_start, int* pairs){
 	char bgHexCode[7];
 	int i, j;
 
-	for( i = 0; i < pairs; i++ ){
+	for( i = 0; i < 10; i++ ){
 		if( i != 0 ){
 			strcpy(buffer, ",");
 			write(fd, buffer, sizeof(char));
@@ -310,7 +261,6 @@ int initialize_pairs_from_file(int fd, int offset_start, State *currentState){
 		init_pair(pairNum, fgColor, bgColor);
 
 		token = strsep(&save_ptr, ",");
-
 
 		if(save_ptr != NULL) token = strtok_r(NULL, ":", &save_ptr);
 		else break;
@@ -425,79 +375,6 @@ int load_image_from_file(Win *window, char *file_name, State *currentState){
 	return 0;
 }
 
-void print_help_screen(){
-	Win *helpWin = create_Win(10, 10, 30, 60);
-	curs_set(0);
-
-	mvwaddstr(helpWin->ptr, 1, 1, 
-	"Welcome to my program, and to the help menu,\n\
- to start drawing you can press <Esc> to exit the menu\n\
- and enter the drawing screen. (after exiting this prompt)\n\
- MODES:\n\
- There are currently 4 modes implemented, which are:\n\
- NORMAL:\n\
- - Key: <Esc>\n\
- - The mode used to move around the screen without\n\
- modifying the drawing.\n\
- INSERT:\n\
- - Key: <Enter>\n\
- - The mode to actually draw on the screen, \n\
- whenever you move the cursor you place the content(s)\n\
- of the brush at the current position.\n\
- DELETE:\n\
- - Key: <BackSpace>\n\
- - The mode to put an empty space wherever your\n\
- cursor moves.\n\
- STICKY:\n\
- - Key: Menu option\n\
- - This mode is different from the others, instead\n\
- of switching modes, each key press is it's own\n\
- action, without switching to the respective mode,\n\
- acting like a constant NORMAL mode.\n\
- For example, whenever you press <Enter> it places\n\
- the content of the brush at the position of the cursor\n\
- while staying in the STICKY mode, same with <BackSpace>.\n\
- ---Press any key to exit Help menu---\
-");
-
-	setup_menu_popup(helpWin, "| Help menu |", SIDE_CENTER, NULL, 0, 0);
-
-	wgetch(helpWin->ptr);
-	delete_Win(helpWin);
-}
-
-
-void highlight_menu_line(Win* window, int lineNum, bool highlight){
-	chtype* buffer;
-	int x, y, size;
-
-	buffer = (chtype*) malloc(window->cols * sizeof(chtype) +1);
-
-	curs_set(0);
-
-	x = window->borderSize;
-	y = lineNum + window->borderSize;
-	size = window->cols - window->borderSize * 2;
-
-	mvwinchnstr(window->ptr, y, x, buffer, size);
-	if(highlight){
-		for(int i = 0; i < size; i++){
-			buffer[i] = buffer[i] | A_REVERSE;
-		}
-	}
-	else{
-		for(int i = 0; i < size; i++){
-			buffer[i] = buffer[i] & (~A_REVERSE);
-		}
-	}
-
-	mvwaddchnstr(window->ptr, y, x, buffer, size);
-
-	free(buffer);
-	wrefresh(window->ptr);
-	return;
-}
-
 int option_picker(Win* win, int numOptions, int* hover){
 	int highlight = 0;
 	int input = 0;
@@ -544,36 +421,16 @@ int option_picker(Win* win, int numOptions, int* hover){
 	return -10;
 }
 
-void setup_color_menu(Win* color_win){
-	char *color_options[] ={
-		"Choose letter color",
-		"Choose background color",
-		"Confirm",
-	};
-	int posLetterHex, posBackHex, posYHex;
-
-	setup_menu_popup(color_win, "| Color picker |", SIDE_CENTER, color_options, 3, SIDE_LEFT);
-
-	wattron(color_win->ptr, COLOR_PAIR(LAST_PAIR));
-	mvwaddstr( color_win->ptr, color_win->lines /2, color_win->cols/2 - 2, "$$$$");
-	wattroff(color_win->ptr, COLOR_PAIR(LAST_PAIR));
-
-	posYHex = color_win->lines - color_win->borderSize - 1;
-	posLetterHex = color_win->borderSize + 2;
-	posBackHex = color_win->cols - color_win->borderSize - 7;
-
-	mvwaddch(color_win->ptr, posYHex, posLetterHex - 1, '#');
-	mvwaddch(color_win->ptr, posYHex, posBackHex - 1, '#');
-
-	return;
-}
-
 attr_t get_attr_off(attr_t current, attr_t toTurnOff){
 	return current & ~toTurnOff;
 }
 
-attr_t get_attr_on(attr_t current, attr_t toTurnOff){
-	return current | toTurnOff;
+attr_t get_attr_on(attr_t current, attr_t toTurnOn){
+	return current | toTurnOn;
+}
+
+attr_t get_attr_with_color_pair(attr_t current, short pairNum){
+	return ( current & ~COLOR_PAIR(PAIR_NUMBER(current)) ) | COLOR_PAIR(pairNum);
 }
 
 int change_color_popup(State *currentState){
@@ -581,7 +438,7 @@ int change_color_popup(State *currentState){
 	RGB rgb1, rgb2;
 	int optionSelected = 0;
 	int isValid, confirm;
-	short newPair;
+	short newPair = 0;
 	char hexCodeFg[7], hexCodeBg[7];
 	int posLetterHex, posBackHex, posYHex;
 
@@ -619,7 +476,6 @@ int change_color_popup(State *currentState){
 					pad_string_with_char_right(hexCodeFg, '0', 6);
 					isValid = hex_to_RGB(hexCodeFg, &rgb1);
 				}
-				mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
 				break;
 			case 1:
 				confirm = read_input_echo(color_win, posYHex, posBackHex, hexCodeBg, 6);
@@ -627,20 +483,19 @@ int change_color_popup(State *currentState){
 					pad_string_with_char_right(hexCodeBg, '0', 6);
 					isValid = hex_to_RGB(hexCodeBg, &rgb2);
 				}
-				mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
 				break;
 			case 2: 
-				newPair = PAIR_NUMBER(currentState->chMask);
-				currentState->chMask = get_attr_off(currentState->chMask, COLOR_PAIR(newPair));
+				newPair = make_new_color_pair(PAIR_NUMBER(currentState->chMask) + 1, rgb1, rgb2, NULL);
 
-				newPair = make_new_color_pair(newPair + 1, rgb1, rgb2, NULL);
-
-				currentState->chMask = get_attr_on(currentState->chMask, COLOR_PAIR(newPair));
+				currentState->chMask = get_attr_with_color_pair(currentState->chMask, newPair);
+				update_hud(*currentState);
 				wattrset(currentState->theDrawWin->ptr, currentState->chMask);
 				break;
 			default:
 				break;
 		}
+		mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
+		mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
 
 		if( confirm ){
 			if( isValid ){
@@ -663,7 +518,7 @@ int change_color_popup(State *currentState){
 	return 0;
 }
 
-int handle_enter(Win *inputMenu,int optNum, State *currentState){
+int handle_enter(Win *inputMenu, int optNum, State *currentState){
 	int fd;
 	char file_name[MAXINPUT] = {0};
 	int posy, posx;
@@ -678,9 +533,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			setup_input_menu(inputMenu, defaultBorder, "Write string to use:", NULL); 
 			show_Win(inputMenu);
 
-			curs_set(1);
 			read_input_echo(inputMenu, 1, 1, currentState->toPrint, maxChars); 
-			curs_set(0);
 			
 			remove_window(inputMenu);
 			update_hud(*currentState);
@@ -705,9 +558,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 					"Insert file name (current directory):", "Esc to cancel"); 
 			show_Win(inputMenu);
 
-			curs_set(1);
 			read_input_echo(inputMenu, 1, 1, file_name, maxChars); 
-			curs_set(0);
 			
 			remove_window(inputMenu);
 			
@@ -721,9 +572,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 					"Insert file name (current directory):", "Esc to cancel"); 
 			show_Win(inputMenu);
 
-			curs_set(1);
 			read_input_echo(inputMenu, 1, 1, file_name, maxChars); 
-			curs_set(0);
 			
 			remove_window(inputMenu);
 			

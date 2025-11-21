@@ -1,4 +1,4 @@
-#include "custom-utils.h"
+#include "headers/custom-utils.h"
 
 void RGB_to_hex(char *result, RGB rgb){
 	int value;
@@ -13,7 +13,7 @@ void RGB_to_hex(char *result, RGB rgb){
 	value += round_up_division_int(tempValue, 1000);
 
 	snprintf(result, 7, "%X", value);
-	pad_string_with_char_left(result, 0, 6);
+	pad_string_with_char_left(result, '0', 6);
 }
 
 int hex_to_RGB(char* hexCode, RGB *rgb){
