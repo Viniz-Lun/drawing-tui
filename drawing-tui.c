@@ -2,6 +2,7 @@
 #include <curses.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "RGB.h"
@@ -31,6 +32,13 @@ typedef struct state_t{
 	Win* focus;
 	Win* theDrawWin;
 } State;
+
+//typedef struct context_t{
+//	State state;
+//	WinList allWins;
+//	int* colors;
+//	int* color_pairs;
+//} Context;
 
 void init(State *state){
 	initscr();
@@ -65,7 +73,7 @@ void init(State *state){
 	state->theDrawWin = &baseScr;
 }
 
-MODE get_mode(MODE curr_mode, int key ){
+MODE get_mode(MODE curr_mode, int key){
 	if ( curr_mode == STICKY ) return STICKY;
 	switch(key){
 		case ESC:
@@ -187,10 +195,46 @@ void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optio
 	return;
 }
 
+//TO-DO
+//proto function
+int write_pairs_in_file(int fd, int offset_start, int* pairs){
+	char buffer[512];
+	short bgColorNum;
+	short fgColorNum;
+	RGB rgb;
+	char fgHexCode[7];
+	char bgHexCode[7];
+	int i, j;
+
+	for( i = 0; i < pairs; i++ ){
+		if( i != 0 ){
+			strcpy(buffer, ",");
+			write(fd, buffer, sizeof(char));
+		}
+		pair_content(pairs[i], &fgColorNum, &bgColorNum);
+
+		color_content(fgColorNum, &rgb.r, &rgb.g, &rgb.b);
+		RGB_to_hex(fgHexCode, rgb);
+
+		color_content(bgColorNum, &rgb.r, &rgb.g, &rgb.b);
+		RGB_to_hex(bgHexCode, rgb);
+
+		sprintf(buffer, "%d:{%s,%s}", pairs[i], fgHexCode, bgHexCode);
+		write(fd, buffer, sizeof(char) * strlen(buffer));
+	} 
+	write(fd, "\n", sizeof(char));
+	return lseek(fd, 0, SEEK_CUR);
+}
+//TO-DO
+int write_colors_in_file(int fd, int offset_start, int* colors);
+
 int save_drawing_to_file(Win *window, char *file_name, State *currentState){
 	int fd;
 	chtype *buffer;
 	char stringExitMsg[32];
+	//int colors[256];
+	//int pairs[127];
+	int filePosition;
 	
 	buffer = (chtype*) malloc(window->cols * sizeof(chtype) +1);
 	
@@ -203,6 +247,10 @@ int save_drawing_to_file(Win *window, char *file_name, State *currentState){
 		free(buffer);
 		return 1;
 	}
+
+	//filePosition = write_colors_in_file(fd, 0, pairs);
+	//filePosition = write_pairs_in_file(fd, filePosition, colors);
+
 	for(int i = 0; i < window->lines; i++){
 		mvwinchstr(window->ptr, i, 0, buffer);
 		write(fd, buffer, sizeof(chtype) * window->cols);
@@ -211,35 +259,38 @@ int save_drawing_to_file(Win *window, char *file_name, State *currentState){
 	}
 	free(buffer);
 	close(fd);
+
 	sprintf(stringExitMsg, " Done saving file, size: %lu ", window->cols * window->lines * sizeof(char) + sizeof(char) * window->lines );
 	show_message_top_left(stringExitMsg, NULL);
 	refresh();
 	return 0;
 }
 
-void initialize_colors(int fd, State *currentState){
-	char *firstLine, *token, *save_ptr, *ptr;
+int initialize_pairs_from_file(int fd, int offset_start, State *currentState){
+	char *firstLine, *token, *save_ptr, *ptr, *freePtr;
 	char colors[256];
 	char c;
-	int i, pairNum;
-	RGB fg, bg;
+	int i;
+	short fgColor, bgColor, pairNum;
 
-	lseek(fd, 0, SEEK_SET);
+	lseek(fd, offset_start, SEEK_SET);
 	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ );
 
-	firstLine = (char*) malloc(sizeof(char) * i + 1);
+	firstLine = (char*) malloc(sizeof(char) * (i + 1));
 	if( firstLine == NULL ){ 
 		perror("Errore malloc");
-		return;
+		return -1;
 	}
+	freePtr = firstLine;
 
-	lseek(fd, 0, SEEK_SET);
+	lseek(fd, offset_start, SEEK_SET);
 	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ ){
 		firstLine[i] = c;
 	}
 	firstLine[i] = '\0';
 	
 	token = strtok_r(firstLine, ":", &save_ptr);
+
 	while( token != NULL ){
 		pairNum = atoi( token );
 
@@ -250,46 +301,99 @@ void initialize_colors(int fd, State *currentState){
 
 		ptr = colors;
 		token = strsep( &ptr,  ",");
-		hex_to_RGB(token, &fg);
-		
-		hex_to_RGB(ptr, &bg);
 
-		make_new_color_pair(pairNum, fg, bg, NULL);
+		fgColor = atoi(token);
+
+		token = ptr;
+		bgColor = atoi(token);
+		
+		init_pair(pairNum, fgColor, bgColor);
 
 		token = strsep(&save_ptr, ",");
+
+
+		if(save_ptr != NULL) token = strtok_r(NULL, ":", &save_ptr);
+		else break;
+	}
+	free( freePtr );
+	return lseek(fd, 0, SEEK_CUR);
+}
+
+int initialize_colors_from_file(int fd, int offset_start, State *currentState){
+	char *firstLine, *token, *save_ptr, *freePtr;
+	char colors[256];
+	char c;
+	int i;
+	short colorNum;
+	RGB rgb;
+
+	lseek(fd, offset_start, SEEK_SET);
+	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ );
+
+	firstLine = (char*) malloc(sizeof(char) * (i + 1));
+	if( firstLine == NULL ){ 
+		perror("Errore malloc");
+		return -1;
+	}
+	freePtr = firstLine;
+
+	lseek(fd, offset_start, SEEK_SET);
+	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ ){
+		firstLine[i] = c;
+	}
+	firstLine[i] = '\0';
+	
+	token = strtok_r(firstLine, ":", &save_ptr);
+	while( token != NULL ){
+		colorNum = atoi( token );
+		token = strtok_r(NULL, ",", &save_ptr);
+		
+		hex_to_RGB(token, &rgb);
+
+		init_color(colorNum, rgb.r, rgb.g, rgb.b);
 
 		if(save_ptr != NULL) token = strtok_r(NULL, ":", &save_ptr);
 		else break;
 	}
 
-	free( firstLine );
-	return;
+	free( freePtr );
+	return lseek(fd, 0, SEEK_CUR);
 }
 
 int load_image_from_file(Win *window, char *file_name, State *currentState){
 	int fd;
-	int i, j, nread, len;
+	int i, j, nread, len, filePosition;
 	char stringExitMsg[65];
 	chtype *bufferPointer;
 	size_t size;
 
 	fd = open(file_name, O_RDONLY);
 	if (fd < 0){
-		mvhline(0, 0, COLS, ' ');
-		strncpy(stringExitMsg, " Error opening the file ", 32);
-		show_message_top_left(stringExitMsg, NULL);
+		show_message_top_left(" Error opening the file ", NULL);
 		refresh();
-		return 1;
+		return -1;
 	}
-
-	initialize_colors(fd, currentState);
-
-	len = strlen(file_name);
-
+	
 	bufferPointer = (chtype*) malloc((window->cols + 1) * sizeof(chtype));
 	memset(bufferPointer, 0, (window->cols+1) * sizeof(chtype));
+	
+	len = strlen(file_name);
+	if( isCurse(file_name, len) ){
 
-	size = ( isCurse(file_name, len) ) ? sizeof(chtype) : sizeof(char);
+		size = sizeof(chtype);
+
+		filePosition = initialize_colors_from_file(fd, 0, currentState);
+		if(filePosition < 0 ||
+				initialize_pairs_from_file(fd, filePosition, currentState) < 0 ){
+			show_message_top_left(" Error initializing colors from file ", NULL);
+			free( bufferPointer );
+			close(fd);
+			return -2;
+		}
+	}
+	else{
+		size = sizeof(char);
+	}
 
 	for(i = 0; i < window->lines; i++){
 		for(j = 0; j < window->cols + 1; j++){
@@ -489,6 +593,8 @@ int change_color_popup(State *currentState){
 		init_pair(LAST_PAIR, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
 	}
 
+	setup_color_menu(color_win);
+
 	color_content(COLOR_FG_PREVIEW, &rgb1.r, &rgb1.g, &rgb1.b);
 	color_content(COLOR_BG_PREVIEW, &rgb2.r, &rgb2.g, &rgb2.b);
 
@@ -502,7 +608,8 @@ int change_color_popup(State *currentState){
 	mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
 	mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
 
-	while( (optionSelected = option_picker(color_win, 3, &optionSelected)) >= 0 ){
+	optionSelected = option_picker(color_win, 3, &optionSelected);
+	while( optionSelected >= 0 ){
 		curs_set(1);
 
 		switch(optionSelected){
@@ -526,7 +633,7 @@ int change_color_popup(State *currentState){
 				newPair = PAIR_NUMBER(currentState->chMask);
 				currentState->chMask = get_attr_off(currentState->chMask, COLOR_PAIR(newPair));
 
-				newPair = make_new_color_pair(newPair+ 1, rgb1, rgb2, NULL);
+				newPair = make_new_color_pair(newPair + 1, rgb1, rgb2, NULL);
 
 				currentState->chMask = get_attr_on(currentState->chMask, COLOR_PAIR(newPair));
 				wattrset(currentState->theDrawWin->ptr, currentState->chMask);
@@ -535,17 +642,22 @@ int change_color_popup(State *currentState){
 				break;
 		}
 
-		if( isValid && confirm){
-			mvwhline( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, ' ', 14);
-			init_color(COLOR_FG_PREVIEW, rgb1.r, rgb1.g, rgb1.b);
-			init_color(COLOR_BG_PREVIEW, rgb2.r, rgb2.g, rgb2.b);
-			init_pair(LAST_PAIR, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
+		if( confirm ){
+			if( isValid ){
+				mvwhline( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, ' ', 14);
+				init_color(COLOR_FG_PREVIEW, rgb1.r, rgb1.g, rgb1.b);
+				init_color(COLOR_BG_PREVIEW, rgb2.r, rgb2.g, rgb2.b);
+				init_pair(LAST_PAIR, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
+			}
+			else{
+				mvwaddstr( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, "Hex not valid");
+			}
 		}
-		else{
-			if( confirm ) mvwaddstr( color_win->ptr, color_win->lines /2 + 1, color_win->cols/2 - 7, "Hex not valid");
-		}
+
 		wrefresh(color_win->ptr);
-	}
+
+		optionSelected = option_picker(color_win, 3, &optionSelected);
+	}//while
 
 	delete_Win(color_win);
 	return 0;
@@ -578,8 +690,11 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			else show_message_top_left("This terminal does not have the capability for colors", NULL);
 			break;
 		case 2:
-			if ( (currentState->chMask & A_REVERSE) == A_REVERSE ) currentState->chMask = currentState->chMask & ~A_REVERSE;
-			else currentState->chMask = currentState->chMask | A_REVERSE;
+			if ( (currentState->chMask & A_REVERSE) == A_REVERSE )
+				currentState->chMask = get_attr_off(currentState->chMask, A_REVERSE);
+			else
+				currentState->chMask = get_attr_on(currentState->chMask, A_REVERSE);
+
 			wattrset(currentState->theDrawWin->ptr, currentState->chMask);
 			break;
 		case 3:
@@ -596,7 +711,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			
 			remove_window(inputMenu);
 			
-			if(file_name[0] != 0){
+			if(file_name[0] != '\0'){
 				load_image_from_file(currentState->theDrawWin, file_name, currentState);
 				return 1;
 			}
@@ -612,7 +727,7 @@ int handle_enter(Win *inputMenu,int optNum, State *currentState){
 			
 			remove_window(inputMenu);
 			
-			if(file_name[0] != 0){
+			if(file_name[0] != '\0'){
 				save_drawing_to_file(currentState->theDrawWin, file_name, currentState);
 			}
 			break;
@@ -636,6 +751,7 @@ int main(int argc, char **argv){
 	int highlight;
 	Win *popupWin, *drawWin, *inputMenu;
 	State currentState;
+	MODE action;
 
 	/* initialize curses */
 
@@ -731,39 +847,41 @@ int main(int argc, char **argv){
 					update_hud(currentState);
 					break;
 			}
-			if( currentState.mode != NORMAL && currentState.focus == drawWin ){
-				if( currentState.mode == DELETE || ( currentState.mode == STICKY && inp == KEY_BACKSPACE ) ){
-					mvwaddchnstr(drawWin->ptr, dy, dx , &emptyChar, 1); 
+			if( currentState.focus == drawWin ){
+				action = (currentState.mode == STICKY)? get_mode(NORMAL, inp): currentState.mode;
+				switch( action ){
+					case DELETE:
+						mvwaddchnstr(drawWin->ptr, dy, dx , &emptyChar, 1); 
+						break;
+					case INSERT:
+						mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
+						break;
+					case NORMAL:
+					default:
+						break;
 				}
-				else{
-					if( currentState.mode == INSERT || (currentState.mode == STICKY && inp == ENTER) ) mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
-				}
+				wmove(drawWin->ptr, dy, dx);
 				wrefresh(drawWin->ptr);
 			}
-			wmove(drawWin->ptr, dy, dx);
-		}
+		}// focus == drawWin
 		if( currentState.focus == popupWin ){
 			//MENU navigation
-			while( (optionSelected = option_picker(popupWin, numOptions, &highlight)) >= 0 ){
-				if (handle_enter(inputMenu, optionSelected, &currentState) == 0){
+			optionSelected = option_picker(popupWin, numOptions, &highlight);
+			while( optionSelected >= 0 ){
+				if( handle_enter(inputMenu, optionSelected, &currentState) == 0 ){
 					update_hud(currentState);
+					optionSelected = option_picker(popupWin, numOptions, &highlight);
 				}
 				else{
-					currentState.focus = drawWin;
-					remove_window(popupWin);
-					wmove(drawWin->ptr, dy, dx);
-					curs_set(1);
 					break;
 				}
 			}
-			if( optionSelected == -1 ){
-				currentState.focus = drawWin;
-				remove_window(popupWin);
-				wmove(drawWin->ptr, dy, dx);
-				curs_set(1);
-			}
 			if( optionSelected == -2 ) break;
-		}
+			currentState.focus = drawWin;
+			remove_window(popupWin);
+			wmove(drawWin->ptr, dy, dx);
+			curs_set(1);
+		}// focus == popupWin
 	} 
 	end_screen();
 	

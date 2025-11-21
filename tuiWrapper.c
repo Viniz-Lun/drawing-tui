@@ -2,7 +2,7 @@
 
 #include "tuiWrapper.h"
 
-static WinList allWins;
+static WinList allWins = NULL;
 
 WinBorder defaultBorder = {
 	1,

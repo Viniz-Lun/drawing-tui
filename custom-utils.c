@@ -39,7 +39,9 @@ int hex_to_RGB(char* hexCode, RGB *rgb){
 
 void pad_string_with_char_right(char* result, char c, int maxlen){
 	int i;
-	for( i = 0; i < maxlen && result[i] != '\0'; i++ );
+
+	i = strlen(result);
+
 	if ( i < maxlen ){
 		for(; i < maxlen ; i++ ){
 			result[i] = c;
@@ -53,17 +55,19 @@ void pad_string_with_char_left(char* result, char c, int maxlen){
 	int i;
 	int len;
 	int numOfC;
+
 	len = strlen(result);
 	numOfC = maxlen - len;
 
-	if( len >= maxlen ) return;
+	if( numOfC <= 0) return;
 	
 	result[maxlen] = '\0';
 	for( i = 0; i < len; i++ ){
-		result[ (maxlen - 1) - i ] = result[ (len-1) - i];
+		result[ (maxlen-1) - i ] = result[ (len-1) - i];
 		result[ (len-1) - i ] = c;
 	}
-	for( ; i < numOfC; i++ ){
+	//i = len
+	for(; i < numOfC; i++ ){
 		result[i] = c;
 	}
 	return;
