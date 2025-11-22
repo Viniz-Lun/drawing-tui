@@ -28,18 +28,18 @@ typedef struct state_t{
 	char toPrint[MAXINPUT];
 	MODE mode;
 	attr_t chMask;
-	Win* focus;
-	Win* theDrawWin;
 } State;
 
-//typedef struct context_t{
-//	State state;
-//	WinList allWins;
-//	int* colors;
-//	int* color_pairs;
-//} Context;
+typedef struct context_t{
+	State* state;
+	WinList allWins;
+	void* custom_colors;
+	void* color_pairs;
+	Win* focus;
+	Win* theDrawWin;
+} Context;
 
-void init(State *state){
+void init(Context *app, State *state){
 	initscr();
 	cbreak();
 	noecho();
@@ -64,12 +64,17 @@ void init(State *state){
 
 	set_Win_list( cons(&baseScr, NULL) );
 	
+	app->allWins = get_Win_list();
+	app->color_pairs = NULL;
+	app->custom_colors = NULL;
+	app->focus = &baseScr;
+	app->state = state;
+	app->theDrawWin = &baseScr;
+
 	state->toPrint[0] = '$'; 
 	state->toPrint[1] = 0;
 	state->mode = NORMAL;
 	state->chMask = 0;
-	state->focus = &baseScr;
-	state->theDrawWin = &baseScr;
 }
 
 MODE get_mode(MODE curr_mode, int key){
@@ -179,7 +184,7 @@ int write_pairs_in_file(int fd, int offset_start, int* pairs){
 //TO-DO
 int write_colors_in_file(int fd, int offset_start, int* colors);
 
-int save_drawing_to_file(Win *window, char *file_name, State *currentState){
+int save_drawing_to_file(Context *app, char *file_name){
 	int fd;
 	chtype *buffer;
 	char stringExitMsg[32];
@@ -187,7 +192,7 @@ int save_drawing_to_file(Win *window, char *file_name, State *currentState){
 	//int pairs[127];
 	int filePosition;
 	
-	buffer = (chtype*) malloc(window->cols * sizeof(chtype) +1);
+	buffer = (chtype*) malloc(app->theDrawWin->cols * sizeof(chtype) +1);
 	
 	fd = open(file_name, O_WRONLY | O_CREAT, 0644);
 	if (fd < 0){
@@ -202,22 +207,23 @@ int save_drawing_to_file(Win *window, char *file_name, State *currentState){
 	//filePosition = write_colors_in_file(fd, 0, pairs);
 	//filePosition = write_pairs_in_file(fd, filePosition, colors);
 
-	for(int i = 0; i < window->lines; i++){
-		mvwinchstr(window->ptr, i, 0, buffer);
-		write(fd, buffer, sizeof(chtype) * window->cols);
+	for(int i = 0; i < app->theDrawWin->lines; i++){
+		mvwinchstr(app->theDrawWin->ptr, i, 0, buffer);
+		write(fd, buffer, sizeof(chtype) * app->theDrawWin->cols);
 		*buffer = '\n';
 		write(fd, buffer, sizeof(chtype));
 	}
 	free(buffer);
 	close(fd);
 
-	sprintf(stringExitMsg, " Done saving file, size: %lu ", window->cols * window->lines * sizeof(char) + sizeof(char) * window->lines );
+	sprintf(stringExitMsg, " Done saving file, size: %lu ",
+			app->theDrawWin->cols * app->theDrawWin->lines * sizeof(char) + sizeof(char) * app->theDrawWin->lines );
 	show_message_top_left(stringExitMsg, NULL);
 	refresh();
 	return 0;
 }
 
-int initialize_pairs_from_file(int fd, int offset_start, State *currentState){
+int initialize_pairs_from_file(int fd, int offset_start, Context *app){
 	char *firstLine, *token, *save_ptr, *ptr, *freePtr;
 	char colors[256];
 	char c;
@@ -269,7 +275,7 @@ int initialize_pairs_from_file(int fd, int offset_start, State *currentState){
 	return lseek(fd, 0, SEEK_CUR);
 }
 
-int initialize_colors_from_file(int fd, int offset_start, State *currentState){
+int initialize_colors_from_file(int fd, int offset_start, Context *app){
 	char *firstLine, *token, *save_ptr, *freePtr;
 	char colors[256];
 	char c;
@@ -310,7 +316,7 @@ int initialize_colors_from_file(int fd, int offset_start, State *currentState){
 	return lseek(fd, 0, SEEK_CUR);
 }
 
-int load_image_from_file(Win *window, char *file_name, State *currentState){
+int load_image_from_file(Context *app, char *file_name){
 	int fd;
 	int i, j, nread, len, filePosition;
 	char stringExitMsg[65];
@@ -324,17 +330,17 @@ int load_image_from_file(Win *window, char *file_name, State *currentState){
 		return -1;
 	}
 	
-	bufferPointer = (chtype*) malloc((window->cols + 1) * sizeof(chtype));
-	memset(bufferPointer, 0, (window->cols+1) * sizeof(chtype));
+	bufferPointer = (chtype*) malloc((app->theDrawWin->cols + 1) * sizeof(chtype));
+	memset(bufferPointer, 0, (app->theDrawWin->cols+1) * sizeof(chtype));
 	
 	len = strlen(file_name);
 	if( isCurse(file_name, len) ){
 
 		size = sizeof(chtype);
 
-		filePosition = initialize_colors_from_file(fd, 0, currentState);
+		filePosition = initialize_colors_from_file(fd, 0, app);
 		if(filePosition < 0 ||
-				initialize_pairs_from_file(fd, filePosition, currentState) < 0 ){
+				initialize_pairs_from_file(fd, filePosition, app) < 0 ){
 			show_message_top_left(" Error initializing colors from file ", NULL);
 			free( bufferPointer );
 			close(fd);
@@ -345,16 +351,16 @@ int load_image_from_file(Win *window, char *file_name, State *currentState){
 		size = sizeof(char);
 	}
 
-	for(i = 0; i < window->lines; i++){
-		for(j = 0; j < window->cols + 1; j++){
+	for(i = 0; i < app->theDrawWin->lines; i++){
+		for(j = 0; j < app->theDrawWin->cols + 1; j++){
 			nread = read(fd,&bufferPointer[j], size);
 			if ( bufferPointer[j] == '\n' || nread <= 0)
 				break;
-			if( i == 0 && j == 0 ) clear_Win(window);
+			if( i == 0 && j == 0 ) clear_Win(app->theDrawWin);
 		}
 		if (nread >= 0) {
 			bufferPointer[j] = 0;
-			mvwaddchnstr(window->ptr, i, 0, bufferPointer, j);
+			mvwaddchnstr(app->theDrawWin->ptr, i, 0, bufferPointer, j);
 		}
 		if (nread <= 0) break;
 	}
@@ -364,7 +370,7 @@ int load_image_from_file(Win *window, char *file_name, State *currentState){
 
 	if (nread >= 0) {
 		snprintf(stringExitMsg, 64, " Done loading file: %s ", file_name);
-		touchwin(window->ptr);
+		touchwin(app->theDrawWin->ptr);
 	}
 	else {
 		strncpy(stringExitMsg, "Error reading from file", 31);
@@ -433,7 +439,7 @@ attr_t get_attr_with_color_pair(attr_t current, short pairNum){
 	return ( current & ~COLOR_PAIR(PAIR_NUMBER(current)) ) | COLOR_PAIR(pairNum);
 }
 
-int change_color_popup(State *currentState){
+int change_color_popup(Context *app){
 	Win* color_win;
 	RGB rgb1, rgb2;
 	int optionSelected = 0;
@@ -444,7 +450,7 @@ int change_color_popup(State *currentState){
 
 	color_win = create_Win(10,10,10,30);
 
-	if( PAIR_NUMBER(currentState->chMask) == 0 ){
+	if( PAIR_NUMBER(app->state->chMask) == 0 ){
 		init_color(COLOR_FG_PREVIEW, 666, 666, 666);
 		init_color(COLOR_BG_PREVIEW, 90, 90, 117);
 		init_pair(LAST_PAIR, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
@@ -485,11 +491,11 @@ int change_color_popup(State *currentState){
 				}
 				break;
 			case 2: 
-				newPair = make_new_color_pair(PAIR_NUMBER(currentState->chMask) + 1, rgb1, rgb2, NULL);
+				newPair = make_new_color_pair(PAIR_NUMBER(app->state->chMask) + 1, rgb1, rgb2, NULL);
 
-				currentState->chMask = get_attr_with_color_pair(currentState->chMask, newPair);
-				update_hud(*currentState);
-				wattrset(currentState->theDrawWin->ptr, currentState->chMask);
+				app->state->chMask = get_attr_with_color_pair(app->state->chMask, newPair);
+				update_hud(*app->state);
+				wattrset(app->theDrawWin->ptr, app->state->chMask);
 				break;
 			default:
 				break;
@@ -518,7 +524,7 @@ int change_color_popup(State *currentState){
 	return 0;
 }
 
-int handle_enter(Win *inputMenu, int optNum, State *currentState){
+int handle_enter(Win *inputMenu, int optNum, Context* app){
 	int fd;
 	char file_name[MAXINPUT] = {0};
 	int posy, posx;
@@ -533,25 +539,25 @@ int handle_enter(Win *inputMenu, int optNum, State *currentState){
 			setup_input_menu(inputMenu, defaultBorder, "Write string to use:", NULL); 
 			show_Win(inputMenu);
 
-			read_input_echo(inputMenu, 1, 1, currentState->toPrint, maxChars); 
+			read_input_echo(inputMenu, 1, 1, app->state->toPrint, maxChars); 
 			
 			remove_window(inputMenu);
-			update_hud(*currentState);
+			update_hud(*app->state);
 			break;
 		case 1:
-			if( has_colors() ) change_color_popup(currentState);
+			if( has_colors() ) change_color_popup(app);
 			else show_message_top_left("This terminal does not have the capability for colors", NULL);
 			break;
 		case 2:
-			if ( (currentState->chMask & A_REVERSE) == A_REVERSE )
-				currentState->chMask = get_attr_off(currentState->chMask, A_REVERSE);
+			if ( (app->state->chMask & A_REVERSE) == A_REVERSE )
+				app->state->chMask = get_attr_off(app->state->chMask, A_REVERSE);
 			else
-				currentState->chMask = get_attr_on(currentState->chMask, A_REVERSE);
+				app->state->chMask = get_attr_on(app->state->chMask, A_REVERSE);
 
-			wattrset(currentState->theDrawWin->ptr, currentState->chMask);
+			wattrset(app->theDrawWin->ptr, app->state->chMask);
 			break;
 		case 3:
-			currentState->mode = (currentState->mode == STICKY)? NORMAL : STICKY;
+			app->state->mode = (app->state->mode == STICKY)? NORMAL : STICKY;
 			break;
 		case 4:
 			setup_input_menu(inputMenu, defaultBorder,
@@ -563,7 +569,7 @@ int handle_enter(Win *inputMenu, int optNum, State *currentState){
 			remove_window(inputMenu);
 			
 			if(file_name[0] != '\0'){
-				load_image_from_file(currentState->theDrawWin, file_name, currentState);
+				load_image_from_file(app, file_name);
 				return 1;
 			}
 			break;
@@ -577,7 +583,7 @@ int handle_enter(Win *inputMenu, int optNum, State *currentState){
 			remove_window(inputMenu);
 			
 			if(file_name[0] != '\0'){
-				save_drawing_to_file(currentState->theDrawWin, file_name, currentState);
+				save_drawing_to_file(app, file_name);
 			}
 			break;
 		case 6:
@@ -598,13 +604,14 @@ int main(int argc, char **argv){
 	int inp;
 	int optionSelected;
 	int highlight;
-	Win *popupWin, *drawWin, *inputMenu;
-	State currentState;
 	MODE action;
+	Win *popupWin, *drawWin, *inputMenu;
+	Context app;
+	State currentState;
 
 	/* initialize curses */
 
-	init(&currentState);
+	init(&app, &currentState);
 
 	if( has_colors() ){
 		start_color();
@@ -613,7 +620,7 @@ int main(int argc, char **argv){
 	//initialize drawWin
 	drawWin = create_Win(1, 1, LINES - 2, COLS - 2);
 
-	currentState.theDrawWin = drawWin;
+	app.theDrawWin = drawWin;
 
 	wrefresh(drawWin->ptr);
 
@@ -656,10 +663,10 @@ int main(int argc, char **argv){
 	setup_menu_popup(popupWin, "| MENU |", SIDE_LEFT, options, numOptions, SIDE_CENTER);
 	highlight_menu_line(popupWin, highlight, true);
 
-	currentState.focus = popupWin;
+	app.focus = popupWin;
 
 	for(;;){
-		if(currentState.focus == drawWin){
+		if(app.focus == drawWin){
 			inp = wgetch(drawWin->ptr);
 			switch(inp){
 				case KEY_F(1):
@@ -670,7 +677,7 @@ int main(int argc, char **argv){
 					popupWin->hidden = 0;
 					touchwin(popupWin->ptr);
 					wrefresh(popupWin->ptr);
-					currentState.focus = popupWin;
+					app.focus = popupWin;
 					break;
 				case KEY_LEFT:
 					if (dx > 0) --dx;
@@ -696,7 +703,7 @@ int main(int argc, char **argv){
 					update_hud(currentState);
 					break;
 			}
-			if( currentState.focus == drawWin ){
+			if( app.focus == drawWin ){
 				action = (currentState.mode == STICKY)? get_mode(NORMAL, inp): currentState.mode;
 				switch( action ){
 					case DELETE:
@@ -713,11 +720,11 @@ int main(int argc, char **argv){
 				wrefresh(drawWin->ptr);
 			}
 		}// focus == drawWin
-		if( currentState.focus == popupWin ){
+		if( app.focus == popupWin ){
 			//MENU navigation
 			optionSelected = option_picker(popupWin, numOptions, &highlight);
 			while( optionSelected >= 0 ){
-				if( handle_enter(inputMenu, optionSelected, &currentState) == 0 ){
+				if( handle_enter(inputMenu, optionSelected, &app) == 0 ){
 					update_hud(currentState);
 					optionSelected = option_picker(popupWin, numOptions, &highlight);
 				}
@@ -726,7 +733,7 @@ int main(int argc, char **argv){
 				}
 			}
 			if( optionSelected == -2 ) break;
-			currentState.focus = drawWin;
+			app.focus = drawWin;
 			remove_window(popupWin);
 			wmove(drawWin->ptr, dy, dx);
 			curs_set(1);

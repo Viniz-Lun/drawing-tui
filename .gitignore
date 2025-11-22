@@ -1,5 +1,3 @@
-.gitignore
 tuiTest
-test.c
-test
 *.curse
+test-files
