@@ -1,9 +1,11 @@
 /* drawing-tui.c */
 
 #include <fcntl.h>
+#include <stdio.h>
 #include <unistd.h>
 
 #include "headers/custom-utils.h"
+#include "headers/myColor.h"
 #include "headers/tuiWrapper.h"
 #include "headers/window-drawing.h"
 
@@ -178,45 +180,58 @@ void update_hud(State currentState){
 	refresh();
 }
 
-//TO-DO
-//proto function
-int write_pairs_in_file(int fd, int offset_start, int* pairs){
-	char buffer[512];
-	short bgColorNum;
-	short fgColorNum;
-	RGB rgb;
-	char fgHexCode[7];
-	char bgHexCode[7];
-	int i, j;
+//TODO check if pair is effectively in the drawing
+int write_pairs_in_file(int fd, int offset_start, Collection pairs){
+	char stringToWrite[24];
+	Pair* pairArray;
 
-	for( i = 0; i < 10; i++ ){
-		if( i != 0 ){
-			strcpy(buffer, ",");
-			write(fd, buffer, sizeof(char));
+	lseek(fd, offset_start, SEEK_SET);
+
+	pairArray = pairs.colPointer;
+
+	for( int i = 0; i < pairs.size; i++ ){
+		if( pairArray[i].pairNum != 0 ){
+			snprintf(stringToWrite, 23, "%d:{%d,%d},", pairArray[i].pairNum, pairArray[i].fg.colorNum, pairArray[i].bg.colorNum);
+			if( write( fd, stringToWrite, sizeof(char) * strlen(stringToWrite) ) < 0){
+				perror("Error saving to file");
+				show_message_top_left("Error saving pairs in file", NULL);
+				return -1;
+			}
 		}
-		pair_content(pairs[i], &fgColorNum, &bgColorNum);
-
-		color_content(fgColorNum, &rgb.r, &rgb.g, &rgb.b);
-		RGB_to_hex(fgHexCode, rgb);
-
-		color_content(bgColorNum, &rgb.r, &rgb.g, &rgb.b);
-		RGB_to_hex(bgHexCode, rgb);
-
-		sprintf(buffer, "%d:{%s,%s}", pairs[i], fgHexCode, bgHexCode);
-		write(fd, buffer, sizeof(char) * strlen(buffer));
 	} 
 	write(fd, "\n", sizeof(char));
 	return lseek(fd, 0, SEEK_CUR);
 }
-//TO-DO
-int write_colors_in_file(int fd, int offset_start, int* colors);
+
+//TODO put check for if color is present in the drawing
+int write_colors_in_file(int fd, int offset_start, Collection colors){
+	char stringToWrite[16];
+	char hex[7];
+	Color* colorArray;
+
+	lseek(fd, offset_start, SEEK_CUR);
+
+	colorArray = colors.colPointer;
+
+	for(int i = 0; i < colors.size; i ++){
+		if( colorArray[i].colorNum != 0 ){
+			RGB_to_hex(hex, colorArray[i].rgb);
+			snprintf(stringToWrite, 15, "%d:%6s,",colorArray[i].colorNum, hex);
+			if( write(fd, stringToWrite, strlen(stringToWrite) * sizeof(char)) < 0 ){
+				perror("Error saving to file");
+				show_message_top_left("Error saving colors in file", NULL);
+				return -1;
+			}
+		}
+	}
+	write(fd, "\n", sizeof(char));
+	return lseek(fd, 0, SEEK_CUR);
+}
 
 int save_drawing_to_file(Context *app, char *file_name){
 	int fd;
 	chtype *buffer;
 	char stringExitMsg[32];
-	//int colors[256];
-	//int pairs[127];
 	int filePosition;
 	
 	buffer = (chtype*) malloc(app->theDrawWin->cols * sizeof(chtype) +1);
@@ -231,8 +246,13 @@ int save_drawing_to_file(Context *app, char *file_name){
 		return 1;
 	}
 
-	//filePosition = write_colors_in_file(fd, 0, pairs);
-	//filePosition = write_pairs_in_file(fd, filePosition, colors);
+	filePosition = write_colors_in_file(fd, 0, app->custom_colors);
+	if( filePosition < 0 )
+		return -1;
+	else{
+		filePosition = write_pairs_in_file(fd, filePosition, app->color_pairs);
+		if( filePosition < 0 ) return -1;
+	}
 
 	for(int i = 0; i < app->theDrawWin->lines; i++){
 		mvwinchstr(app->theDrawWin->ptr, i, 0, buffer);
@@ -256,6 +276,8 @@ int initialize_pairs_from_file(int fd, int offset_start, Context *app){
 	char c;
 	int i;
 	short fgColor, bgColor, pairNum;
+	Pair tempPair;
+	Color* colorArray = app->custom_colors.colPointer;
 
 	lseek(fd, offset_start, SEEK_SET);
 	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ );
@@ -291,7 +313,19 @@ int initialize_pairs_from_file(int fd, int offset_start, Context *app){
 		token = ptr;
 		bgColor = atoi(token);
 		
+		tempPair.pairNum = pairNum;
+
+		i = get_color_index_from_num(fgColor, app->custom_colors.colPointer, app->custom_colors.maxDim);
+		if( i < 0 ) tempPair.fg.colorNum = 1;
+		else tempPair.fg = colorArray[i];
+
+		i = get_color_index_from_num(bgColor, app->custom_colors.colPointer, app->custom_colors.maxDim);
+		if( i < 0 ) tempPair.bg.colorNum = 0;
+		else tempPair.bg = colorArray[i];
+
 		init_pair(pairNum, fgColor, bgColor);
+
+		add_element_to_collection(&app->color_pairs, &tempPair);
 
 		token = strsep(&save_ptr, ",");
 
@@ -309,6 +343,7 @@ int initialize_colors_from_file(int fd, int offset_start, Context *app){
 	int i;
 	short colorNum;
 	RGB rgb;
+	Color temp;
 
 	lseek(fd, offset_start, SEEK_SET);
 	for( i = 0; (read(fd, &c, sizeof(char)) > 0) && c != '\n'; i++ );
@@ -333,7 +368,11 @@ int initialize_colors_from_file(int fd, int offset_start, Context *app){
 		
 		hex_to_RGB(token, &rgb);
 
+		temp.colorNum = colorNum;
+		temp.rgb = rgb;
+
 		init_color(colorNum, rgb.r, rgb.g, rgb.b);
+		add_element_to_collection(&app->custom_colors, &temp);
 
 		if(save_ptr != NULL) token = strtok_r(NULL, ":", &save_ptr);
 		else break;
