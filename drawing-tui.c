@@ -87,11 +87,13 @@ void init(Context *app, State *state){
 	app->theDrawWin = &baseScr;
 
 	app->custom_colors.colPointer = malloc((255) * sizeof(Color));
+	memset(app->custom_colors.colPointer, 0, 255 * sizeof(Color)); 
 	app->custom_colors.maxDim = 255;
 	app->custom_colors.size = 0;
 	app->custom_colors.sizeOfElement = sizeof(Color);
 
 	app->color_pairs.colPointer = malloc((126) * sizeof(Pair));
+	memset(app->color_pairs.colPointer, 0, 126 * sizeof(Pair)); 
 	app->color_pairs.maxDim = 126;
 	app->color_pairs.size = 0;
 	app->color_pairs.sizeOfElement = sizeof(Pair);
@@ -527,18 +529,20 @@ int change_color_popup(Context *app){
 							app->color_pairs.colPointer, app->color_pairs.maxDim);
 
 					add_element_to_collection(&app->color_pairs, &newPair);
+
 					if( get_color_index_from_num(newPair.fg.colorNum,
 								app->custom_colors.colPointer,
-								app->custom_colors.maxDim) == -1 ){
+								app->custom_colors.maxDim) < 0 )
+					{
 						add_element_to_collection(&app->custom_colors, &newPair.fg);
 					}
 					if( get_color_index_from_num(newPair.bg.colorNum,
-								app->color_pairs.colPointer,
-								app->color_pairs.maxDim) == -1 
-							){
+								app->custom_colors.colPointer,
+								app->custom_colors.maxDim) < 0 )
+					{
 						add_element_to_collection(&app->custom_colors, &newPair.bg);
 					}
-				}
+				}// if newPair.pairNum < 0
 
 				app->state->chMask = get_attr_with_color_pair(app->state->chMask, newPair.pairNum);
 
