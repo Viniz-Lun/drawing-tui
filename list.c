@@ -63,21 +63,16 @@ WinList append_list(WinList dest, WinList src){
 
 WinList remove_element( Win* win, WinList list ){
 	if ( is_empty(list) ) return emptyList();
-	if ( head( list ) == win ) return tail(list);
-	WinList prev_element = list;
-	WinList next_element = tail(list);
-	while ( ! is_empty(next_element) ){
-		if ( head(next_element) == win ){
-			prev_element->tail = tail(next_element);
-			free( next_element );
-			break;
-		}
-		else{
-			prev_element = next_element;
-			next_element = tail(next_element);
-		}
+	if ( head( list ) == win ){
+		WinList tempList;
+		tempList = tail(list);
+		free(list);
+		return tempList;
 	}
-	return list;
+	else{
+		list->tail = remove_element(win, tail(list));
+		return list;
+	}
 }
 
 void free_list(WinList list) {
@@ -86,6 +81,7 @@ void free_list(WinList list) {
 	else {
 		free_list(tail(list));
 		free(list);
+		list = NULL;
 	}
 	return;
 }

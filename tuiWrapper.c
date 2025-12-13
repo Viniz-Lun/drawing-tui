@@ -1,6 +1,7 @@
 /* tuiWrapper.c */
 
 #include "headers/tuiWrapper.h"
+#include "headers/list.h"
 
 static WinList allWins = NULL;
 
@@ -37,12 +38,28 @@ WinList get_Win_list(){
 
 void end_screen(){
 	endwin();
-	WinList tempList = allWins;
-	while( ! is_empty(tempList) ){
-		if( head(tempList) != &baseScr ) free( head(tempList) );
-		tempList = tail(tempList);
+	if( allWins != NULL ){
+		delete_all_Win( allWins );
+		free_list(allWins);
 	}
-	free_list(allWins);
+	endwin();
+}
+
+void delete_Win(Win *win){
+	remove_window(win);
+	delwin(win->ptr);
+	allWins = remove_element(win, allWins);
+	free( win );
+}
+
+void delete_all_Win(WinList list){
+	if( ! is_empty(list) ){
+		delete_all_Win(tail(list));
+		if( head(list) != &baseScr ){
+			delete_Win( head(list) );
+		}
+	}
+	return ;
 }
 
 void clear_Win(Win *win){
@@ -97,19 +114,12 @@ void show_Win( Win* win ){
 	wrefresh( win->ptr );
 }
 
-void delete_Win(Win *win){
-	remove_window(win);
-	delwin(win->ptr);
-	allWins = remove_element(win, allWins);
-	free( win );
-}
-
 Win *create_Win(int posy, int posx, int height, int width){
 	WINDOW *windowPtr = newwin(height, width, posy, posx); 
 
 	if ( windowPtr == NULL ) return NULL;
 
-	Win *win = (Win*) malloc(sizeof(Win));
+	Win *win = malloc(sizeof(Win));
 	win->cols = width;
 	win->lines = height;
 	win->ypos = posy;
@@ -230,16 +240,5 @@ int read_input_echo(Win* win, int y, int x, char *result, int max){
 		return 1;
 	}
 	return 0;
-}
-
-//TO-DO
-short make_new_color_pair(short pairNumber, RGB foreground, RGB background, void* color_list){
-	//temp function
-	static short numOfColor = FIRST_COLOR;
-	init_color(numOfColor, foreground.r, foreground.g, foreground.b);
-	init_color(++numOfColor, background.r, background.g, background.b);
-	init_pair( pairNumber, numOfColor - 1, numOfColor);
-	numOfColor++;
-	return pairNumber;
 }
 

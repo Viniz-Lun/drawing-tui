@@ -1,7 +1,4 @@
-#ifndef STRING_H
-	#define STRING_H
-	#include <string.h>
-#endif
+#include <string.h>
 
 #include "RGB.h"
 
@@ -23,3 +20,5 @@ int hex_to_RGB(char* hexCode, RGB *rgb);
 void pad_string_with_char_right(char* result, char c, int maxlen);
 
 void pad_string_with_char_left(char* result, char c, int maxlen);
+
+short get_hole_in_short_sequence_array(void* array, int dim, int step);

@@ -1,9 +1,8 @@
 /* drawing-tui.c */
-#include <curses.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 
-#include "headers/RGB.h"
 #include "headers/custom-utils.h"
 #include "headers/tuiWrapper.h"
 #include "headers/window-drawing.h"
@@ -12,8 +11,6 @@
 #define ENTER 10
 #define COLOR_FG_PREVIEW 255
 #define COLOR_BG_PREVIEW 254
-#define FIRST_PAIR 1
-#define LAST_PAIR 127
 
 typedef enum {
 	INSERT,
@@ -24,6 +21,13 @@ typedef enum {
 	STICKY,
 } MODE;
 
+typedef struct collection_t{
+	void* colPointer;
+	short sizeOfElement;
+	int maxDim;
+	int size;
+} Collection;
+
 typedef struct state_t{
 	char toPrint[MAXINPUT];
 	MODE mode;
@@ -32,12 +36,25 @@ typedef struct state_t{
 
 typedef struct context_t{
 	State* state;
-	WinList allWins;
-	void* custom_colors;
-	void* color_pairs;
+	Collection custom_colors;
+	Collection color_pairs;
 	Win* focus;
 	Win* theDrawWin;
 } Context;
+
+void add_element_to_collection(Collection* collection, void* element){
+	if( collection->maxDim <= collection->size || collection->size < 0 ) return;
+	memcpy((collection->colPointer + (collection->sizeOfElement * collection->size)), element, collection->sizeOfElement);
+	collection->size++;
+}
+
+void end_context( Context *app ){
+	end_screen();
+	app->theDrawWin = NULL;
+	app->focus = &baseScr;
+	free(app->custom_colors.colPointer);
+	free(app->color_pairs.colPointer);
+}
 
 void init(Context *app, State *state){
 	initscr();
@@ -64,12 +81,20 @@ void init(Context *app, State *state){
 
 	set_Win_list( cons(&baseScr, NULL) );
 	
-	app->allWins = get_Win_list();
-	app->color_pairs = NULL;
-	app->custom_colors = NULL;
+	//app->custom_colors = NULL;
 	app->focus = &baseScr;
 	app->state = state;
 	app->theDrawWin = &baseScr;
+
+	app->custom_colors.colPointer = malloc((255) * sizeof(Color));
+	app->custom_colors.maxDim = 255;
+	app->custom_colors.size = 0;
+	app->custom_colors.sizeOfElement = sizeof(Color);
+
+	app->color_pairs.colPointer = malloc((126) * sizeof(Pair));
+	app->color_pairs.maxDim = 126;
+	app->color_pairs.size = 0;
+	app->color_pairs.sizeOfElement = sizeof(Pair);
 
 	state->toPrint[0] = '$'; 
 	state->toPrint[1] = 0;
@@ -442,9 +467,10 @@ attr_t get_attr_with_color_pair(attr_t current, short pairNum){
 int change_color_popup(Context *app){
 	Win* color_win;
 	RGB rgb1, rgb2;
+	Pair newPair;
 	int optionSelected = 0;
 	int isValid, confirm;
-	short newPair = 0;
+	short fgColorNum , bgColorNum;
 	char hexCodeFg[7], hexCodeBg[7];
 	int posLetterHex, posBackHex, posYHex;
 
@@ -490,12 +516,35 @@ int change_color_popup(Context *app){
 					isValid = hex_to_RGB(hexCodeBg, &rgb2);
 				}
 				break;
-			case 2: 
-				newPair = make_new_color_pair(PAIR_NUMBER(app->state->chMask) + 1, rgb1, rgb2, NULL);
+			case 2:
+				newPair.pairNum = get_pair_index_from_rgb(rgb1, rgb2,
+						app->color_pairs.colPointer, app->color_pairs.maxDim);
 
-				app->state->chMask = get_attr_with_color_pair(app->state->chMask, newPair);
-				update_hud(*app->state);
+				if( newPair.pairNum < 0 ){
+					newPair = make_new_color_pair(
+							rgb1, rgb2,
+							app->custom_colors.colPointer, app->custom_colors.maxDim,
+							app->color_pairs.colPointer, app->color_pairs.maxDim);
+
+					add_element_to_collection(&app->color_pairs, &newPair);
+					if( get_color_index_from_num(newPair.fg.colorNum,
+								app->custom_colors.colPointer,
+								app->custom_colors.maxDim) == -1 ){
+						add_element_to_collection(&app->custom_colors, &newPair.fg);
+					}
+					if( get_color_index_from_num(newPair.bg.colorNum,
+								app->color_pairs.colPointer,
+								app->color_pairs.maxDim) == -1 
+							){
+						add_element_to_collection(&app->custom_colors, &newPair.bg);
+					}
+				}
+
+				app->state->chMask = get_attr_with_color_pair(app->state->chMask, newPair.pairNum);
+
 				wattrset(app->theDrawWin->ptr, app->state->chMask);
+
+				update_hud(*app->state);
 				break;
 			default:
 				break;
@@ -590,7 +639,7 @@ int handle_enter(Win *inputMenu, int optNum, Context* app){
 			print_help_screen();
 			break;
 		case 7:
-			end_screen();
+			end_context(app);
 			exit(0);
 			break;
 	}
@@ -670,7 +719,7 @@ int main(int argc, char **argv){
 			inp = wgetch(drawWin->ptr);
 			switch(inp){
 				case KEY_F(1):
-					end_screen();
+					end_context(&app);
 					exit(0);
 					break;
 				case KEY_F(2):
@@ -739,7 +788,7 @@ int main(int argc, char **argv){
 			curs_set(1);
 		}// focus == popupWin
 	} 
-	end_screen();
+	end_context(&app);
 	
 	return 0;
 }

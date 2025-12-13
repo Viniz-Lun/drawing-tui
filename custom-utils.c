@@ -72,3 +72,30 @@ void pad_string_with_char_left(char* result, char c, int maxlen){
 	}
 	return;
 }
+
+// Finds the first "hole" in a sequence of unsorted shorts, assuming the first
+// value is the starting point, with the variable sizeOfContainer being used
+// int case void *array points to a different structure array than short. the
+// number value compared will still be a short however (2 bytes in x64).
+short get_hole_in_short_sequence_array(void *array, int dim, int sizeOfContainer){
+	unsigned long bitmask[5];
+	unsigned long step;
+	int i, j;
+
+	short *shortPtr = (short*)array;
+	short firstValue = *shortPtr;
+
+	step = sizeOfContainer / sizeof(short);
+
+	bitmask[0] = 1;
+	for( i = 1; i < dim && i < (sizeof(*bitmask) * 8 * 5); i++){ 
+		bitmask[i/64] |= (long)1 << ( (shortPtr[i * step] - firstValue) % 64 );
+	}
+
+	for( j = 1; j < i; j++ ){
+		if( ( bitmask[j/64] & ((long)1 << (j % 64)) ) == 0 ) 
+			return j + firstValue;
+	}
+
+	return dim + firstValue;
+}

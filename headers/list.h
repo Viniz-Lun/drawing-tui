@@ -13,7 +13,7 @@ typedef struct WinListElement{
 
 typedef struct WinListElement* WinList;
 
-WinList emptyList(void); // PRIMITIVE
+WinList emptyList(void);
 
 int is_empty(WinList list);
 

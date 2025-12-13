@@ -2,15 +2,10 @@
 #ifndef TUIWRAPPER_H
 #define TUIWRAPPER_H
 
-#include <curses.h>
+#include <ncurses.h>
+
 #include "list.h"
-
-#ifndef STRING_H
-	#define STRING_H
-	#include <string.h>
-#endif
-
-#include "RGB.h"
+#include "myColor.h"
 
 #ifndef MAXINPUT
 	#define MAXINPUT 512
@@ -25,6 +20,7 @@
 #define min(A,B) (A < B)? A : B 
 #define max(A,B) (A > B)? A : B
 #define isCurse(A,LEN) A[LEN-1] == 'e' && A[LEN-2] == 's' && A[LEN-3] == 'r' && A[LEN-4] == 'u' && A[LEN-5] == 'c' && A[LEN-6] == '.'
+
 
 typedef struct {
 	int size;
@@ -64,6 +60,8 @@ WinList get_Win_list();
 
 void end_screen();
 
+void delete_all_Win( WinList list );
+
 void remove_window( Win *win );
 
 void show_Win( Win *win );
@@ -87,7 +85,5 @@ int get_xpos_for_string_size(int width, char *string, SIDE side, int offset);
 int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset);
 
 int read_input_echo(Win *win, int y, int x, char *result, int max);
-
-short make_new_color_pair(short pairNumber, RGB foreground, RGB background, void* color_list);
 
 #endif
