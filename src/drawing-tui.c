@@ -776,7 +776,7 @@ int main(int argc, char **argv){
 				touchwin(popupWin->ptr);
 				wrefresh(popupWin->ptr);
 				app.focus = popupWin;
-				break;
+				continue;
 			}
 			
 			switch(inp){
