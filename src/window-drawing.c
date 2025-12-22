@@ -51,7 +51,7 @@ void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optio
 	return;
 }
 
-void setup_color_menu(Win* color_win){
+void setup_color_menu(Win* color_win, char* fgHex, char* bgHex){
 	char *color_options[] ={
 		"Choose letter color",
 		"Choose background color",
@@ -71,6 +71,9 @@ void setup_color_menu(Win* color_win){
 
 	mvwaddch(color_win->ptr, posYHex, posLetterHex - 1, '#');
 	mvwaddch(color_win->ptr, posYHex, posBackHex - 1, '#');
+
+	mvwaddstr(color_win->ptr, posYHex, posLetterHex, fgHex);
+	mvwaddstr(color_win->ptr, posYHex, posBackHex, bgHex);
 
 	return;
 }
@@ -107,13 +110,14 @@ void highlight_menu_line(Win* window, int lineNum, bool highlight){
 }
 
 void print_help_screen(){
-	Win *helpWin = create_Win(10, 10, 30, 60);
+	Win *helpWin = create_Win(10, 10, 31, 60);
 	curs_set(0);
 
 	mvwaddstr(helpWin->ptr, 1, 1, 
 	"Welcome to my program, and to the help menu,\n\
  to start drawing you can press <Esc> to exit the menu\n\
  and enter the drawing screen. (after exiting this prompt)\n\
+ To go back to the menu, press <F2> (in the drawing screen).\
  MODES:\n\
  There are currently 4 modes implemented, which are:\n\
  NORMAL:\n\
@@ -138,7 +142,7 @@ void print_help_screen(){
  For example, whenever you press <Enter> it places\n\
  the content of the brush at the position of the cursor\n\
  while staying in the STICKY mode, same with <BackSpace>.\n\
- ---Press any key to exit Help menu---\
+          ---Press any key to exit Help menu---\
 ");
 
 	setup_menu_popup(helpWin, "| Help menu |", SIDE_CENTER, NULL, 0, 0);

@@ -1,8 +1,8 @@
 build:
-	gcc headers/* drawing-tui.c tuiWrapper.c list.c custom-utils.c -o drawing-tui -lncurses
+	gcc headers/*.h src/*.c -o drawing-tui -lncurses
 
 build-test:
-	gcc headers/*.h *.c -o tuiTest -lncurses
+	gcc -I. headers/*.h src/*.c -o tuiTest -lncurses
 
 test: build-test
 	./tuiTest

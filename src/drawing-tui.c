@@ -1,6 +1,7 @@
 /* drawing-tui.c */
 
 #include <fcntl.h>
+#include <ncurses.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -338,7 +339,6 @@ int initialize_pairs_from_file(int fd, int offset_start, Context *app){
 
 int initialize_colors_from_file(int fd, int offset_start, Context *app){
 	char *firstLine, *token, *save_ptr, *freePtr;
-	char colors[256];
 	char c;
 	int i;
 	short colorNum;
@@ -505,6 +505,42 @@ attr_t get_attr_with_color_pair(attr_t current, short pairNum){
 	return ( current & ~COLOR_PAIR(PAIR_NUMBER(current)) ) | COLOR_PAIR(pairNum);
 }
 
+void set_or_create_pair_from_rgb(Context *app, RGB fg, RGB bg){
+	Pair newPair;
+	newPair.pairNum = get_pair_index_from_rgb(fg, bg,
+			app->color_pairs.colPointer, app->color_pairs.maxDim);
+
+	if( newPair.pairNum < 0 ){
+		newPair = make_new_color_pair(
+				fg, bg,
+				app->custom_colors.colPointer, app->custom_colors.maxDim,
+				app->color_pairs.colPointer, app->color_pairs.maxDim);
+
+		add_element_to_collection(&app->color_pairs, &newPair);
+
+		if( get_color_index_from_num(newPair.fg.colorNum,
+					app->custom_colors.colPointer,
+					app->custom_colors.maxDim) < 0 )
+		{
+			add_element_to_collection(&app->custom_colors, &newPair.fg);
+		}
+		if( get_color_index_from_num(newPair.bg.colorNum,
+					app->custom_colors.colPointer,
+					app->custom_colors.maxDim) < 0 )
+		{
+			add_element_to_collection(&app->custom_colors, &newPair.bg);
+		}
+	}// if newPair.pairNum < 0
+
+	app->state->chMask = get_attr_with_color_pair(app->state->chMask, newPair.pairNum);
+
+	wattrset(app->theDrawWin->ptr, app->state->chMask);
+
+	update_hud(*app->state);
+
+	return;
+}
+
 int change_color_popup(Context *app){
 	Win* color_win;
 	RGB rgb1, rgb2;
@@ -523,21 +559,18 @@ int change_color_popup(Context *app){
 		init_pair(LAST_PAIR, COLOR_FG_PREVIEW, COLOR_BG_PREVIEW);
 	}
 
-	setup_color_menu(color_win);
-
 	color_content(COLOR_FG_PREVIEW, &rgb1.r, &rgb1.g, &rgb1.b);
 	color_content(COLOR_BG_PREVIEW, &rgb2.r, &rgb2.g, &rgb2.b);
+
+	RGB_to_hex(hexCodeFg , rgb1);
+	RGB_to_hex(hexCodeBg , rgb2);
+
+	setup_color_menu(color_win, hexCodeFg, hexCodeBg);
 
 	posYHex = color_win->lines - color_win->borderSize - 1;
 	posLetterHex = color_win->borderSize + 2;
 	posBackHex = color_win->cols - color_win->borderSize - 7;
 	
-	RGB_to_hex(hexCodeFg , rgb1);
-	RGB_to_hex(hexCodeBg , rgb2);
-
-	mvwaddstr(color_win->ptr, posYHex, posLetterHex, hexCodeFg);
-	mvwaddstr(color_win->ptr, posYHex, posBackHex, hexCodeBg);
-
 	optionSelected = option_picker(color_win, 3, &optionSelected);
 	while( optionSelected >= 0 ){
 		curs_set(1);
@@ -558,36 +591,7 @@ int change_color_popup(Context *app){
 				}
 				break;
 			case 2:
-				newPair.pairNum = get_pair_index_from_rgb(rgb1, rgb2,
-						app->color_pairs.colPointer, app->color_pairs.maxDim);
-
-				if( newPair.pairNum < 0 ){
-					newPair = make_new_color_pair(
-							rgb1, rgb2,
-							app->custom_colors.colPointer, app->custom_colors.maxDim,
-							app->color_pairs.colPointer, app->color_pairs.maxDim);
-
-					add_element_to_collection(&app->color_pairs, &newPair);
-
-					if( get_color_index_from_num(newPair.fg.colorNum,
-								app->custom_colors.colPointer,
-								app->custom_colors.maxDim) < 0 )
-					{
-						add_element_to_collection(&app->custom_colors, &newPair.fg);
-					}
-					if( get_color_index_from_num(newPair.bg.colorNum,
-								app->custom_colors.colPointer,
-								app->custom_colors.maxDim) < 0 )
-					{
-						add_element_to_collection(&app->custom_colors, &newPair.bg);
-					}
-				}// if newPair.pairNum < 0
-
-				app->state->chMask = get_attr_with_color_pair(app->state->chMask, newPair.pairNum);
-
-				wattrset(app->theDrawWin->ptr, app->state->chMask);
-
-				update_hud(*app->state);
+				set_or_create_pair_from_rgb(app, rgb1, rgb2);
 				break;
 			default:
 				break;
@@ -700,11 +704,17 @@ int main(int argc, char **argv){
 	Win *popupWin, *drawWin, *inputMenu;
 	Context app;
 	State currentState;
+	MEVENT mouse;
 
 	/* initialize curses */
 
 	init(&app, &currentState);
 
+
+	///
+	mousemask(BUTTON1_CLICKED, NULL);
+	mouseinterval(0);
+	///
 	if( has_colors() ){
 		start_color();
 	}
@@ -760,16 +770,30 @@ int main(int argc, char **argv){
 	for(;;){
 		if(app.focus == drawWin){
 			inp = wgetch(drawWin->ptr);
+			
+			if( inp == KEY_F(2) ){
+				popupWin->hidden = 0;
+				touchwin(popupWin->ptr);
+				wrefresh(popupWin->ptr);
+				app.focus = popupWin;
+				break;
+			}
+			
 			switch(inp){
+				case KEY_MOUSE:
+					getmouse(&mouse);
+					if( mouse.bstate & BUTTON1_CLICKED ){
+						if( !(mouse.x > (drawWin->xpos + drawWin->cols) ||
+								mouse.x < drawWin->xpos || mouse.y < drawWin->ypos ||
+								mouse.y > (drawWin->ypos + drawWin->lines)) ){
+							dx = mouse.x - drawWin->xpos;
+							dy = mouse.y - drawWin->ypos;
+						}
+					}
+					break;
 				case KEY_F(1):
 					end_context(&app);
 					exit(0);
-					break;
-				case KEY_F(2):
-					popupWin->hidden = 0;
-					touchwin(popupWin->ptr);
-					wrefresh(popupWin->ptr);
-					app.focus = popupWin;
 					break;
 				case KEY_LEFT:
 					if (dx > 0) --dx;
@@ -795,22 +819,20 @@ int main(int argc, char **argv){
 					update_hud(currentState);
 					break;
 			}
-			if( app.focus == drawWin ){
-				action = (currentState.mode == STICKY)? get_mode(NORMAL, inp): currentState.mode;
-				switch( action ){
-					case DELETE:
-						mvwaddchnstr(drawWin->ptr, dy, dx , &emptyChar, 1); 
-						break;
-					case INSERT:
-						mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
-						break;
-					case NORMAL:
-					default:
-						break;
-				}
-				wmove(drawWin->ptr, dy, dx);
-				wrefresh(drawWin->ptr);
+			action = (currentState.mode == STICKY)? get_mode(NORMAL, inp): currentState.mode;
+			switch( action ){
+				case DELETE:
+					mvwaddchnstr(drawWin->ptr, dy, dx , &emptyChar, 1); 
+					break;
+				case INSERT:
+					mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
+					break;
+				case NORMAL:
+				default:
+					break;
 			}
+			wmove(drawWin->ptr, dy, dx);
+			wrefresh(drawWin->ptr);
 		}// focus == drawWin
 		if( app.focus == popupWin ){
 			//MENU navigation
@@ -824,7 +846,10 @@ int main(int argc, char **argv){
 					break;
 				}
 			}
-			if( optionSelected == -2 ) break;
+			if( optionSelected == -2 ){
+				end_context(&app);
+				exit(0);
+			}
 			app.focus = drawWin;
 			remove_window(popupWin);
 			wmove(drawWin->ptr, dy, dx);

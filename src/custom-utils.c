@@ -73,10 +73,10 @@ void pad_string_with_char_left(char* result, char c, int maxlen){
 	return;
 }
 
-// Finds the first "hole" in a sequence of unsorted shorts, assuming the first
+// Finds the first "hole" in a sequence of unsorted short numbers, assuming the first
 // value is the starting point, with the variable sizeOfContainer being used
-// int case void *array points to a different structure array than short. the
-// number value compared will still be a short however (2 bytes in x64).
+// in case void *array points to a different structure array than short. However, the
+// number value compared will still be of short type (2 bytes in x64).
 short get_hole_in_short_sequence_array(void *array, int dim, int sizeOfContainer){
 	unsigned long bitmask[5];
 	unsigned long step;
