@@ -1,6 +1,7 @@
 tuiTest
+translator
 *.curse
 test-files
 drawings
 compile_flags.txt
-
+BashCodedFile
