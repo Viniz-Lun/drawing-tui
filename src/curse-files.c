@@ -1,8 +1,13 @@
 #include "headers/curse-files.h"
 #include "headers/tuiWrapper.h"
+#include "headers/myColor.h"
+#include "headers/custom-utils.h"
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
+#include <stdlib.h>
+
 
 int initialize_pairs_from_file(int fd, int offset_start, Context *app){
 	char *firstLine, *token, *save_ptr, *ptr, *freePtr;

@@ -1,5 +1,8 @@
 #include "headers/context.h"
 #include "headers/tuiWrapper.h"
+#include "headers/myColor.h"
+
+#include <stdlib.h>
 
 void init_context(Context *app, State* state){
 	app->focus = &baseScr;

@@ -5,7 +5,7 @@
 #define MAXINPUT 512
 #endif
 
-#ifndef NCURSES_H
+#ifndef KEY_BACKSPACE
 	#define KEY_BACKSPACE 263
 #endif
 

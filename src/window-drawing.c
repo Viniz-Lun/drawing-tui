@@ -1,5 +1,8 @@
 #include "headers/window-drawing.h"
 
+#include <string.h>
+#include <stdlib.h>
+
 #ifndef LAST_PAIR
 #define LAST_PAIR 127
 #endif

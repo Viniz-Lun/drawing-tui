@@ -1,5 +1,8 @@
 #include "headers/mode.h"
+
+#include "headers/tuiWrapper.h"
 #include <string.h>
+
 
 MODE get_mode(MODE curr_mode, int key){
 	if ( curr_mode == STICKY ) return STICKY;
