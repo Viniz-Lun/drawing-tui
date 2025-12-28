@@ -2,8 +2,6 @@
 #define COLOR_H
 
 #include "RGB.h"
-#include <ncurses.h>
-#include "custom-utils.h"
 
 #define FIRST_COLOR 8
 #define LAST_COLOR 253
@@ -22,18 +20,24 @@ typedef struct pair_t{
 } Pair;
 
 
+int init_base_colors(Color *colorCollection, int maxDimColors);
+
 int get_color_index_from_rgb(RGB value, Color *colorArray, int maxDimColors);
 
 int get_color_index_from_num(short colorNum, Color *colorArray, int maxDimColors);
 
+int get_pair_index_from_pair_num(short pairNum, Pair *colorArray, int maxDimPairs);
+
 int get_pair_index_from_color_nums(short fg, short bg, Pair* pairArray, int arrLength);
 
-//TODO
+Color get_color_from_num(short colorNum, Color *colorArray, int maxDimColors);
+
 int get_pair_index_from_rgb(RGB fg, RGB bg, Pair* colorPairs, int maxDimPairs);
+
+Pair get_pair_from_pair_num(short pairNum, Pair *pairArray, int maxDimPairs);
 
 Color make_new_color(RGB rgb, Color* colorCollection, int maxDimColors);
 
-//TODO
 Pair make_new_color_pair(RGB fg, RGB bg, Color* customColors, int maxDimColors, Pair* customPairs, int maxDimPairs);
 
 void add_color(Color c, void* colorArray, int position, int maxDim);

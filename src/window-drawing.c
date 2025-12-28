@@ -150,3 +150,49 @@ void print_help_screen(){
 	wgetch(helpWin->ptr);
 	delete_Win(helpWin);
 }
+
+int option_picker(Win* win, int numOptions, int* hover){
+	int highlight = 0;
+	int input = 0;
+
+	if( ! is_keypad( win->ptr ) ) keypad( win->ptr, true );
+
+	curs_set(0);
+	
+	if( hover != NULL ) {
+		highlight = *hover;
+		if( highlight < 0 ) highlight = highlight * -1;
+		if( highlight >= numOptions ) highlight = highlight % (numOptions - 1);
+	}
+
+	highlight_menu_line(win, highlight,true);
+	while( (input = wgetch(win->ptr)) ){
+		switch(input){
+			case KEY_UP:
+				highlight_menu_line(win, highlight,false);
+				if(highlight == 0) highlight = numOptions - 1;
+				else highlight--;
+				highlight_menu_line(win, highlight,true);
+				break;
+			case KEY_DOWN:
+				highlight_menu_line(win, highlight,false);
+				if(highlight == numOptions - 1) highlight = 0;
+				else highlight++;
+				highlight_menu_line(win, highlight,true);
+				break;
+			case ENTER:
+				if( hover !=NULL ) *hover = highlight;
+				return highlight;
+			case ESC: 
+				if( hover !=NULL ) *hover = highlight;
+				return -1;
+				break;
+			case KEY_F(1):
+				return -2;
+				break;
+			default :
+				break;
+		}
+	}
+	return -10;
+}

@@ -1,7 +1,8 @@
 /* tuiWrapper.c */
-
 #include "headers/tuiWrapper.h"
-#include "headers/list.h"
+
+#include <stdlib.h>
+#include <string.h>
 
 static WinList allWins = NULL;
 
@@ -27,6 +28,36 @@ Win baseScr = {
 };
 
 chtype emptyChar = {' '};
+
+void init_tui(){
+	initscr();
+	cbreak();
+	noecho();
+	set_escdelay(50);
+
+	if( has_colors() ){
+		start_color();
+	}
+	
+	defaultBorder.size = 1;
+	defaultBorder.bottom = ACS_HLINE;
+	defaultBorder.top = ACS_HLINE;
+	defaultBorder.right = ACS_VLINE;
+	defaultBorder.left = ACS_VLINE;
+	defaultBorder.topLeft_corner = ACS_ULCORNER;
+	defaultBorder.topRight_corner = ACS_URCORNER;
+	defaultBorder.bottomLeft_corner = ACS_LLCORNER;
+	defaultBorder.bottomRight_corner = ACS_LRCORNER;
+
+	baseScr.ptr = stdscr;
+	baseScr.cols = COLS;
+	baseScr.lines = LINES;
+	baseScr.borderSize = 0;
+	baseScr.xpos = 0;
+	baseScr.ypos = 0;
+
+	set_Win_list( cons(&baseScr, NULL) );
+}
 
 void set_Win_list(WinList list){
 	allWins = list;
@@ -242,3 +273,14 @@ int read_input_echo(Win* win, int y, int x, char *result, int max){
 	return 0;
 }
 
+attr_t get_attr_off(attr_t current, attr_t toTurnOff){
+	return current & ~toTurnOff;
+}
+
+attr_t get_attr_on(attr_t current, attr_t toTurnOn){
+	return current | toTurnOn;
+}
+
+attr_t get_attr_with_color_pair(attr_t current, short pairNum){
+	return ( current & ~COLOR_PAIR(PAIR_NUMBER(current)) ) | COLOR_PAIR(pairNum);
+}

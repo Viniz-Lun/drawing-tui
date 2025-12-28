@@ -1,5 +1,9 @@
 #include "headers/custom-utils.h"
 
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 void RGB_to_hex(char *result, RGB rgb){
 	int value;
 	int tempValue;

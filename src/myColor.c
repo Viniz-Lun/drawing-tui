@@ -1,5 +1,24 @@
 #include "headers/myColor.h"
+
+#include "headers/custom-utils.h"
+
 #include <ncurses.h>
+
+int init_base_colors(Color *colorCollection, int maxDimColors){
+	Color tempColor;
+	RGB tempRGB;
+	if( maxDimColors < 8 ) return 0;
+
+	for( int i = 0; i < 8; i++ ){
+		color_content(i, &tempRGB.r, &tempRGB.g, &tempRGB.b);
+		init_color(i, tempRGB.r, tempRGB.g, tempRGB.b);
+
+		tempColor.colorNum = i;
+		tempColor.rgb = tempRGB;
+		colorCollection[i] = tempColor;
+	}
+	return 8;
+}
 
 int get_color_index_from_rgb(RGB value, Color *colorArray, int maxDimColors){
 	RGB toCompare;
@@ -21,6 +40,29 @@ int get_color_index_from_num(short colorNum, Color *colorArray, int maxDimColors
 	return -1;
 }
 
+Color get_color_from_num(short colorNum, Color *colorArray, int maxDimColors){
+	for( int i = 0; i < maxDimColors; i++){
+		if( colorArray[i].colorNum == colorNum )
+			return colorArray[i];
+	}
+	return (Color){-1};
+}
+
+int get_pair_index_from_pair_num(short pairNum, Pair *pairArray, int maxDimPairs){
+	for( int i = 0; i < maxDimPairs; i++){
+		if( pairArray[i].pairNum == pairNum )
+			return i;
+	}
+	return -1;
+}
+
+Pair get_pair_from_pair_num(short pairNum, Pair *pairArray, int maxDimPairs){
+	for( int i = 0; i < maxDimPairs; i++){
+		if( pairArray[i].pairNum == pairNum )
+			return pairArray[i];
+	}
+	return (Pair){-1,};
+}
 
 int get_pair_index_from_rgb(RGB fg, RGB bg, Pair *pairArray, int maxDimPairs){
 	RGB toCompare;
@@ -69,6 +111,9 @@ Pair make_new_color_pair(RGB fg, RGB bg, Color *customColors, int maxDimColors, 
 	Color color1, color2;
 	Pair resultPair;
 
+	color1.colorNum = -1;
+	color2.colorNum = -1;
+
 	fgColorIndex = get_color_index_from_rgb(fg, customColors, maxDimColors);
 	bgColorIndex = get_color_index_from_rgb(bg, customColors, maxDimColors);
 
@@ -85,7 +130,7 @@ Pair make_new_color_pair(RGB fg, RGB bg, Color *customColors, int maxDimColors, 
 	}
 	else color2 = customColors[bgColorIndex];
 	
-	if( color1.colorNum == 0 || color2.colorNum == 0 ) return (Pair){0};
+	if( color1.colorNum == -1 || color2.colorNum == -1 ) return (Pair){0};
 	
 	numOfPair = get_hole_in_short_sequence_array(customPairs, maxDimPairs, sizeof(Pair));
 	if( numOfPair < 1 || numOfPair > LAST_PAIR ) return (Pair){0};

@@ -3,15 +3,19 @@
 #define TUIWRAPPER_H
 
 #include <ncurses.h>
-
-#include "list.h"
-#include "myColor.h"
+#include "headers/win-wrapper.h"
+#include "headers/list.h"
 
 #ifndef MAXINPUT
 	#define MAXINPUT 512
 #endif
 
 #define FIRST_COLOR 8
+#define ESC 27
+#define KEY_DELETE 330
+#define KEY_TAB 9
+#define ENTER 10
+
 
 #define isMasc(A) A >= 'A' && A <= 'Z' 
 #define isMinusc(A) A >= 'A' && A <= 'Z' 
@@ -19,8 +23,6 @@
 #define isAlf(A) isMasc(A) || isMinusc(A)
 #define min(A,B) (A < B)? A : B 
 #define max(A,B) (A > B)? A : B
-#define isCurse(A,LEN) A[LEN-1] == 'e' && A[LEN-2] == 's' && A[LEN-3] == 'r' && A[LEN-4] == 'u' && A[LEN-5] == 'c' && A[LEN-6] == '.'
-
 
 typedef struct {
 	int size;
@@ -38,21 +40,13 @@ extern Win baseScr;
 extern WinBorder defaultBorder;
 extern chtype emptyChar;
 
-struct Win{
-	WINDOW *ptr;
-	int lines;
-	int cols;
-	int xpos;
-	int ypos;
-	int borderSize;
-	int hidden;
-};
-
 typedef enum {
 	SIDE_LEFT,
 	SIDE_CENTER,
 	SIDE_RIGHT,
 } SIDE;
+
+void init_tui();
 
 void set_Win_list( WinList list );
 
@@ -85,5 +79,11 @@ int get_xpos_for_string_size(int width, char *string, SIDE side, int offset);
 int get_xpos_for_string_window(Win window, char *string, SIDE side, int offset);
 
 int read_input_echo(Win *win, int y, int x, char *result, int max);
+
+attr_t get_attr_off(attr_t current, attr_t toTurnOff);
+
+attr_t get_attr_on(attr_t current, attr_t toTurnOn);
+
+attr_t get_attr_with_color_pair(attr_t current, short pairNum);
 
 #endif

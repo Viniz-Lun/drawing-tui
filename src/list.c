@@ -1,5 +1,7 @@
 #include "headers/list.h"
 
+#include <stdlib.h>
+
 WinList emptyList() { return NULL; }
 
 int is_empty(WinList list) {

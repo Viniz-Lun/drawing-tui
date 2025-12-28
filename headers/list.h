@@ -1,10 +1,7 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include <stdlib.h>
-
-struct Win;
-typedef struct Win Win;
+#include "headers/win-wrapper.h"
 
 typedef struct WinListElement{
 	Win *head;

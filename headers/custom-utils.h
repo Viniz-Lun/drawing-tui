@@ -1,9 +1,4 @@
-#include <string.h>
-
 #include "RGB.h"
-
-#include <stdlib.h>
-#include <stdio.h>
 
 #define isMasc(A) A >= 'A' && A <= 'Z' 
 #define isMinusc(A) A >= 'A' && A <= 'Z' 
