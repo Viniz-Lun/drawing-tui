@@ -246,7 +246,7 @@ int save_drawing_to_file(Context *app, char *file_name){
 	
 	fd = open(file_name, O_WRONLY | O_CREAT, 0644);
 	if (fd < 0){
-		strncpy(stringExitMsg, " Error opening/creating the file ", 32);
+		strncpy(stringExitMsg, "Error opening/creating the file", 32);
 		perror(stringExitMsg);
 		show_message_top_left(stringExitMsg, NULL);
 		refresh();

@@ -1,12 +1,15 @@
 #include "RGB.h"
 
-#define isMasc(A) A >= 'A' && A <= 'Z' 
-#define isMinusc(A) A >= 'A' && A <= 'Z' 
-#define isDigit(A) A >= '0' && A <= '9' 
-#define isAlf(A) isMasc(A) || isMinusc(A)
-#define min(A,B) (A < B)? A : B 
-#define max(A,B) (A > B)? A : B
-#define isTxt(A,LEN) A[LEN-1] == 't' && A[LEN-2] == 'x' && A[LEN-3] == 't' && A[LEN-4] == '.'
+#define isMasc(A) ((A) >= 'A' && (A) <= 'Z')
+#define isMinusc(A) ((A) >= 'A' && (A) <= 'Z')
+#define isDigit(A) ((A) >= '0' && (A) <= '9')
+#define isAlf(A) (isMasc(A) || isMinusc(A))
+#define isTxt(A,LEN) ( (A)[LEN-1] == 't') && (A)[LEN-2] == 'x' && (A)[LEN-3] == 't' && (A)[LEN-4] == '.' )
+
+#ifndef min
+	#define min(A,B) ( (A < B)? A : B )
+	#define max(A,B) ( (A > B)? A : B )
+#endif
 
 void RGB_to_hex(char *result, RGB rgb);
 

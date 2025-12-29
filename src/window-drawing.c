@@ -27,7 +27,7 @@ void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **opt
 }
 
 void setup_input_menu(Win* win, WinBorder border, char* printPrompt, char* optional_message){
-	int centerXpos, len, inputChar;
+	int centerXpos, len;
 	char prompt[200];
 	
 	clear_Win(win);

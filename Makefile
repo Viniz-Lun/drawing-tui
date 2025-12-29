@@ -47,10 +47,13 @@ clean:
 	rm -rf $(OBJ_DIR) $(TARGET) $(TEST_TARGET) $(TRNSLTR_TARGET)
 
 clean-build: clean build
+
 test-clean-build: clean build-test
 
 test: build-test test-run
 
 build-translator: $(TRNSLTR_TARGET)
+
+all: build build-translator
 
 -include $(OBJS:.o=.d)

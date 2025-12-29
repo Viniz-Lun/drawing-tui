@@ -66,7 +66,7 @@ Pair get_pair_from_pair_num(short pairNum, Pair *pairArray, int maxDimPairs){
 
 int get_pair_index_from_rgb(RGB fg, RGB bg, Pair *pairArray, int maxDimPairs){
 	RGB toCompare;
-	for( int i = 0; i < 127; i++){
+	for( int i = 0; i < maxDimPairs; i++){
 		if( pairArray[i].pairNum != 0 ){
 			toCompare = pairArray[i].fg.rgb;
 			if( toCompare.r == fg.r && toCompare.g == fg.g && toCompare.b == fg.b){
@@ -82,7 +82,7 @@ int get_pair_index_from_rgb(RGB fg, RGB bg, Pair *pairArray, int maxDimPairs){
 
 int get_pair_index_from_color_nums(short fg, short bg, Pair *pairArray, int arrLength){
 	if( fg < 0 || bg < 0 ) return -1;
-	for( int i = 0; i < LAST_PAIR - FIRST_PAIR; i++ ){
+	for( int i = 0; i < arrLength; i++ ){
 		if( pairArray[i].fg.colorNum == fg &&
 				pairArray[i].bg.colorNum == bg ){
 			return pairArray[i].pairNum;

@@ -3,7 +3,7 @@
 
 #include "context.h"
 
-#define isCurse(A,LEN) A[LEN-1] == 'e' && A[LEN-2] == 's' && A[LEN-3] == 'r' && A[LEN-4] == 'u' && A[LEN-5] == 'c' && A[LEN-6] == '.'
+#define isCurse(A,LEN) ((A)[LEN-1] == 'e' && (A)[LEN-2] == 's' && (A)[LEN-3] == 'r' && (A)[LEN-4] == 'u' && (A)[LEN-5] == 'c' && (A)[LEN-6] == '.')
 
 int initialize_pairs_from_file(int fd, int offset_start, Context *app);
 

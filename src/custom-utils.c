@@ -22,7 +22,6 @@ void RGB_to_hex(char *result, RGB rgb){
 
 int hex_to_RGB(char* hexCode, RGB *rgb){
 	int value;
-	float f;
 	for( int i = 0; i < 6; i++){
 		if(! ( isDigit(hexCode[i]) ||
 				(hexCode[i] >= 'a' && hexCode[i] <= 'f') ||
@@ -84,7 +83,7 @@ void pad_string_with_char_left(char* result, char c, int maxlen){
 short get_hole_in_short_sequence_array(void *array, int dim, int sizeOfContainer){
 	unsigned long bitmask[5];
 	unsigned long step;
-	int i, j;
+	unsigned int i, j;
 
 	short *shortPtr = (short*)array;
 	short firstValue = *shortPtr;

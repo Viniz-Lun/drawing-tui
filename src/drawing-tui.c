@@ -18,7 +18,7 @@ void end_program(Context* app){
 }
 
 void update_hud(State currentState){
-	char string[MAXINPUT];
+	char string[MAXINPUT + 16];
 	char modeString[8];
 
 	mvhline(LINES - 1, 1, ACS_HLINE, COLS - 2);
@@ -79,7 +79,6 @@ int change_color_popup(Context *app){
 	Pair newPair;
 	int optionSelected = 0;
 	int isValid, confirm;
-	short fgColorNum , bgColorNum;
 	char hexCodeFg[7], hexCodeBg[7];
 	int posLetterHex, posBackHex, posYHex;
 	int index;
@@ -161,9 +160,7 @@ int change_color_popup(Context *app){
 }
 
 int handle_enter(Win *inputMenu, int optNum, Context* app){
-	int fd;
 	char file_name[MAXINPUT] = {0};
-	int posy, posx;
 	int maxChars;
 	int width;
 	

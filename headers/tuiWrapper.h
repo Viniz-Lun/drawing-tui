@@ -16,13 +16,11 @@
 #define KEY_TAB 9
 #define ENTER 10
 
+#ifndef min
+	#define min(A,B) ((A < B)? A : B )
+	#define max(A,B) ((A > B)? A : B )
+#endif
 
-#define isMasc(A) A >= 'A' && A <= 'Z' 
-#define isMinusc(A) A >= 'A' && A <= 'Z' 
-#define isDigit(A) A >= '0' && A <= '9' 
-#define isAlf(A) isMasc(A) || isMinusc(A)
-#define min(A,B) (A < B)? A : B 
-#define max(A,B) (A > B)? A : B
 
 typedef struct {
 	int size;

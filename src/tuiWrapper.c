@@ -15,6 +15,7 @@ WinBorder defaultBorder = {
 	0,
 	0,
 	0,
+	0,
 };
 
 Win baseScr = {
@@ -119,7 +120,7 @@ int num_lines_intersect(Win* Awin, Win* Bwin){
 }
 
 void remove_window(Win *win){
-	int intersectPoint, numLines;
+	int intersectPoint, numLinesTouched;
 	clear_area(win->ypos, win->xpos, win->lines, win->cols);
 	win->hidden = 1;
 	WinList tempList = allWins;
@@ -129,9 +130,10 @@ void remove_window(Win *win){
 		if( ! currentWin->hidden ){
 			intersectPoint = posy_first_intersect(win, currentWin);
 			if( intersectPoint >= 0 ){
+				numLinesTouched = num_lines_intersect(win, currentWin);
 				touchline( currentWin->ptr,
 						intersectPoint - currentWin->ypos,
-						num_lines_intersect(win, currentWin));
+						numLinesTouched > 0 ? numLinesTouched : 0);
 				wrefresh(currentWin->ptr);
 			}
 		}
