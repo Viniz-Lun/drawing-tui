@@ -1,6 +1,6 @@
-#include "headers/myColor.h"
+#include "myColor.h"
 
-#include "headers/custom-utils.h"
+#include "custom-utils.h"
 
 #include <ncurses.h>
 

@@ -1,7 +1,7 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include "headers/win-wrapper.h"
+#include "win-wrapper.h"
 
 typedef struct WinListElement{
 	Win *head;

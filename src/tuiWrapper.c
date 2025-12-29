@@ -1,5 +1,5 @@
 /* tuiWrapper.c */
-#include "headers/tuiWrapper.h"
+#include "tuiWrapper.h"
 
 #include <stdlib.h>
 #include <string.h>

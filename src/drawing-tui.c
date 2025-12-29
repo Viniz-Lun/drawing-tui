@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "headers/custom-utils.h"
-#include "headers/myColor.h"
-#include "headers/window-drawing.h"
-#include "headers/curse-files.h"
+#include "custom-utils.h"
+#include "myColor.h"
+#include "window-drawing.h"
+#include "curse-files.h"
 
 #define COLOR_FG_PREVIEW 255
 #define COLOR_BG_PREVIEW 254

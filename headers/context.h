@@ -1,9 +1,9 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
-#include "headers/collection.h"
-#include "headers/mode.h"
-#include "headers/win-wrapper.h"
+#include "collection.h"
+#include "mode.h"
+#include "win-wrapper.h"
 
 typedef struct context_t{
 	State* state;

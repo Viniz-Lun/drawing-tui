@@ -1,6 +1,6 @@
-#include "headers/mode.h"
+#include "mode.h"
 
-#include "headers/tuiWrapper.h"
+#include "tuiWrapper.h"
 #include <string.h>
 
 

@@ -3,8 +3,8 @@
 #define TUIWRAPPER_H
 
 #include <ncurses.h>
-#include "headers/win-wrapper.h"
-#include "headers/list.h"
+#include "win-wrapper.h"
+#include "list.h"
 
 #ifndef MAXINPUT
 	#define MAXINPUT 512

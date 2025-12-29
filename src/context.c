@@ -1,6 +1,6 @@
-#include "headers/context.h"
-#include "headers/tuiWrapper.h"
-#include "headers/myColor.h"
+#include "context.h"
+#include "tuiWrapper.h"
+#include "myColor.h"
 
 #include <stdlib.h>
 

@@ -1,4 +1,4 @@
-#include "headers/collection.h"
+#include "collection.h"
 
 #include <string.h>
 #include <stdlib.h>

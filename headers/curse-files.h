@@ -1,7 +1,7 @@
 #ifndef CURSE_FILES_H
 #define CURSE_FILES_H
 
-#include "headers/context.h"
+#include "context.h"
 
 #define isCurse(A,LEN) A[LEN-1] == 'e' && A[LEN-2] == 's' && A[LEN-3] == 'r' && A[LEN-4] == 'u' && A[LEN-5] == 'c' && A[LEN-6] == '.'
 

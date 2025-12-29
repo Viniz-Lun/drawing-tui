@@ -1,4 +1,4 @@
-#include "headers/window-drawing.h"
+#include "window-drawing.h"
 
 #include <string.h>
 #include <stdlib.h>

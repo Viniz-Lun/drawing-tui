@@ -1,7 +1,7 @@
-#include "headers/curse-files.h"
-#include "headers/tuiWrapper.h"
-#include "headers/myColor.h"
-#include "headers/custom-utils.h"
+#include "curse-files.h"
+#include "tuiWrapper.h"
+#include "myColor.h"
+#include "custom-utils.h"
 
 #include <unistd.h>
 #include <fcntl.h>

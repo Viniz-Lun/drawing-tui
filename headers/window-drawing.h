@@ -1,4 +1,4 @@
-#include "headers/tuiWrapper.h"
+#include "tuiWrapper.h"
 
 void setup_menu_popup(Win *window, char *title, SIDE title_centering, char **options, int numOptions, SIDE text_centering);
 
