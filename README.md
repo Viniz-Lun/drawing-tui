@@ -34,8 +34,8 @@ Or for the drawing-tui and the translator only respectively:
 
 ## To-do
 - ☐ Improve loading saved drawings of different dimensions.
-- ☐ Configure switchable vim-style navigation option.
 - ☐ Make a menu for seeing current and previously used paletettes.
 - ☐ Make a Windows version for PowerShell.
+- ✅ Configure vim-style navigation.
 - ✅ Make it so saved pictures are loaded with their colors.
 - ✅ Make a translator for the custom file used to save drawings to bash (hopefully with color).
