@@ -9,13 +9,13 @@ MODE get_mode(MODE curr_mode, int key){
 	switch(key){
 		case ESC:
 			return NORMAL;
-		case ENTER:
-			return (curr_mode == INSERT)? NORMAL:INSERT;
+		case 'i':
+			return (curr_mode == SELECT)? SELECT:INSERT;
 		case KEY_BACKSPACE:
 			return (curr_mode == DELETE)? NORMAL:DELETE;
 		case KEY_TAB:
 			return (curr_mode == SELECT)? NORMAL:SELECT;
-		case KEY_DELETE:
+		case ENTER:
 			return (curr_mode == VISUAL)? NORMAL:VISUAL;
 		default:
 			return curr_mode;

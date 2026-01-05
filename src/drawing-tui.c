@@ -12,6 +12,13 @@
 #define COLOR_FG_PREVIEW 255
 #define COLOR_BG_PREVIEW 254
 
+typedef enum{
+	UP,
+	RIGHT,
+	LEFT,
+	DOWN,
+} DIRECTION;
+
 void end_program(Context* app){
 	end_screen();
 	end_context(app);
@@ -231,11 +238,49 @@ int handle_enter(Win *inputMenu, int optNum, Context* app){
 	return 0;
 }
 
-int main(int argc, char **argv){
+DIRECTION get_direction_key_bool_vim(int input, int vimModeBoolean){
+	if( vimModeBoolean){
+		switch( input ){
+			case 'j':
+				return DOWN;
+				break;
+			case 'k':
+				return UP;
+				break;
+			case 'l':
+				return RIGHT;
+				break;
+			case 'h':
+				return LEFT;
+				break;
+		}
+	}
+	switch( input ){
+		case KEY_DOWN:
+			return DOWN;
+			break;
+		case KEY_UP:
+			return UP;
+			break;
+		case KEY_RIGHT:
+			return RIGHT;
+			break;
+		case KEY_LEFT:
+			return LEFT;
+		default:
+			return -1;
+	}
+}
+
+int main(){
 	int startx, starty, dx, dy;
 	int inp;
 	int optionSelected;
 	int highlight;
+	DIRECTION direction;
+	bool typing, vimMovement;
+	MODE prevMode;
+
 	MODE action;
 	Win *popupWin, *drawWin, *inputMenu;
 	Context app;
@@ -272,7 +317,7 @@ int main(int argc, char **argv){
 	};
 	int numOptions = 8;
 
-	popupWin = create_Win( LINES/2 - 5, COLS/2 - 20, 10, 40 );
+	popupWin = create_Win( LINES/2 - 5, COLS/2 - 20, numOptions + 2, 40 );
 	
 	//initialize inputMenu
 	inputMenu = create_Win( LINES * 3 / 4 , COLS*1/3, 3, COLS*1/3 );
@@ -304,14 +349,6 @@ int main(int argc, char **argv){
 		if(app.focus == drawWin){
 			inp = wgetch(drawWin->ptr);
 			
-			if( inp == KEY_F(2) ){
-				popupWin->hidden = 0;
-				touchwin(popupWin->ptr);
-				wrefresh(popupWin->ptr);
-				app.focus = popupWin;
-				continue;
-			}
-			
 			switch(inp){
 				case KEY_MOUSE:
 					getmouse(&mouse);
@@ -328,39 +365,85 @@ int main(int argc, char **argv){
 					end_program(&app);
 					exit(0);
 					break;
-				case KEY_LEFT:
+				case KEY_F(2):
+					popupWin->hidden = 0;
+					touchwin(popupWin->ptr);
+					wrefresh(popupWin->ptr);
+					app.focus = popupWin;
+					continue;
+				default :
+					break;
+			}// switch inp
+			
+			// boolean to consider whether vim-style movement should be used ( depends on mode )
+			vimMovement = currentState.mode != INSERT && currentState.mode != SELECT;
+
+			direction = get_direction_key_bool_vim(inp, vimMovement);
+			switch( direction ){
+				case LEFT:
 					if (dx > 0) --dx;
 					break;
-				case KEY_RIGHT:
+				case RIGHT:
 					if (dx < drawWin->cols - 1) ++dx;
 					break;
-				case KEY_UP:
+				case UP:
 					if (dy > 0) --dy;
 					break;
-				case KEY_DOWN:
+				case DOWN:
 					if (dy < drawWin->lines - 1) ++dy;
 					break;
-				default :
-					currentState.mode = get_mode(currentState.mode, inp);
-					if(inp >= 32 && inp <=136){
-						currentState.toPrint[0] = inp;
-						currentState.toPrint[1] = 0;
-					}
-					update_hud(currentState);
+				default:
 					break;
-			}
-			action = (currentState.mode == STICKY)? get_mode(NORMAL, inp): currentState.mode;
+			}// switch direction
+			 
+			action = get_mode((currentState.mode == STICKY)? NORMAL:currentState.mode, inp);
 			switch( action ){
 				case DELETE:
 					mvwaddchnstr(drawWin->ptr, dy, dx , &emptyChar, 1); 
 					break;
-				case INSERT:
-					mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
+
+				case VISUAL:
+					mvwaddstr(drawWin->ptr, dy, dx, currentState.toPrint);
 					break;
+
+				case INSERT:
+					if( currentState.mode != INSERT ) break;
+
+					typing = inp >= 32 && inp <=136;
+					if(typing){
+						currentState.toPrint[0] = inp;
+						currentState.toPrint[1] = 0;
+					}
+					mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
+					if( dx < drawWin->cols - 1 ) ++dx;
+					break;
+
+				case SELECT:
+					prevMode = currentState.mode;
+					currentState.mode = SELECT;
+					update_hud(currentState);
+					wmove(drawWin->ptr, dy, dx);
+
+					inp = wgetch(drawWin->ptr);
+					currentState.mode = prevMode;
+
+					typing = inp >= 32 && inp <=136;
+					if(typing){
+						currentState.toPrint[0] = inp;
+						currentState.toPrint[1] = 0;
+					}
+					break;
+
 				case NORMAL:
 				default:
 					break;
-			}
+			}// switch action
+			
+			//change the mode, if the action was SELECT I ignore the input, for a more cohesive
+			//user experience.
+			if(action != SELECT) currentState.mode = get_mode(currentState.mode, inp);
+
+			update_hud(currentState);
 			wmove(drawWin->ptr, dy, dx);
 			wrefresh(drawWin->ptr);
 		}// focus == drawWin
