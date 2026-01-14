@@ -1,4 +1,6 @@
 #include "window-drawing.h"
+#include "custom-utils.h"
+#include "tuiWrapper.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -112,48 +114,6 @@ void highlight_menu_line(Win* window, int lineNum, bool highlight){
 	return;
 }
 
-void print_help_screen(){
-	Win *helpWin = create_Win(10, 10, 31, 60);
-	curs_set(0);
-
-	mvwaddstr(helpWin->ptr, 1, 1, 
-	"Welcome to my program, and to the help menu,\n\
- to start drawing you can press <Esc> to exit the menu\n\
- and enter the drawing screen. (after exiting this prompt)\n\
- To go back to the menu, press <F2> (in the drawing screen).\
- MODES:\n\
- There are currently 4 modes implemented, which are:\n\
- NORMAL:\n\
- - Key: <Esc>\n\
- - The mode used to move around the screen without\n\
- modifying the drawing.\n\
- INSERT:\n\
- - Key: <Enter>\n\
- - The mode to actually draw on the screen, \n\
- whenever you move the cursor you place the content(s)\n\
- of the brush at the current position.\n\
- DELETE:\n\
- - Key: <BackSpace>\n\
- - The mode to put an empty space wherever your\n\
- cursor moves.\n\
- STICKY:\n\
- - Key: Menu option\n\
- - This mode is different from the others, instead\n\
- of switching modes, each key press is it's own\n\
- action, without switching to the respective mode,\n\
- acting like a constant NORMAL mode.\n\
- For example, whenever you press <Enter> it places\n\
- the content of the brush at the position of the cursor\n\
- while staying in the STICKY mode, same with <BackSpace>.\n\
-          ---Press any key to exit Help menu---\
-");
-
-	setup_menu_popup(helpWin, "| Help menu |", SIDE_CENTER, NULL, 0, 0);
-
-	wgetch(helpWin->ptr);
-	delete_Win(helpWin);
-}
-
 int option_picker(Win* win, int numOptions, int* hover){
 	int highlight = 0;
 	int input = 0;
@@ -199,3 +159,107 @@ int option_picker(Win* win, int numOptions, int* hover){
 	}
 	return -10;
 }
+
+void print_help_screen(){
+//TODO trunc_txt_with_newline_to_width(char* text, int width, bool conserve_words);
+	
+	const char* message =
+	"Welcome to drawing-tui, and to the help menu,\n\
+to start drawing you can press <Esc> to exit the menu\n\
+and enter the drawing screen. (after exiting this prompt)\n\
+To re-open the menu, press <F2> (in the drawing screen).\n\
+Movement:\n\
+To move you may either use the arrow keys or vim-style \n\
+movement, that being: \n\
+    ^\n\
+    k\n\
+< h   l >\n\
+    j\n\
+    v\n\
+MODES:\n\
+There are currently 7 modes implemented, which are:\n\
+HOVER:\n\
+- Key: <Esc>\n\
+- The mode used to move around the screen without\n\
+modifying the drawing.\n\
+TYPING:\n\
+- Key: <i>\n\
+- The mode to type directly on the canvas, although\n\
+pressing <BackSpace> will swap to DELETE mode.\n\
+DELETE:\n\
+- Key: <BackSpace>\n\
+- The mode to put an empty space wherever your\n\
+cursor moves.\n\
+PLACE:\n\
+- Key: <Enter>\n\
+- The mode to actually draw on the screen, \n\
+whenever you move the cursor you place the content(s)\n\
+of the brush at the current position.\n\
+SELECT:\n\
+- Key: <Tab>\n\
+- The mode to select which character to use as the\n\
+brush.\n\
+VISUAL:\n\
+- Key: <v>\n\
+- The mode to select an area to perform an action on.\n\
+Actions can be those of PLACE, DELETE or TYPING.\n\
+STICKY:\n\
+- Key: Menu option\n\
+- This mode is different from the others, instead\n\
+of switching modes, each key press is it's own\n\
+action, without switching to the respective mode,\n\
+acting like a constant HOVER mode.\n\
+For example, whenever you press <Enter> it places\n\
+the content of the brush at the position of the cursor\n\
+while staying in the STICKY mode, same with <BackSpace>.\n\
+       ---Press <q> or <Esc> to exit Help menu---\
+";
+
+	curs_set(0);
+
+	Win *helpWin = create_Win(10, 10, 31, 60);
+	setup_menu_popup(helpWin, "| Help menu |", SIDE_CENTER, NULL, 0, 0);
+	wrefresh(helpWin->ptr);
+	
+	int numLinesOfPad;
+	WINDOW* messagePad;
+
+	numLinesOfPad = calculate_num_lines_after_wraparound(message, helpWin->cols - 2);
+	messagePad = newpad( numLinesOfPad, 58 );
+
+	keypad(messagePad, true);
+
+	mvwaddstr(messagePad, 0, 0, message);
+	prefresh(messagePad, 0, 0, helpWin->ypos +1, helpWin->xpos +1, helpWin->ypos + helpWin->lines -2, helpWin->xpos + helpWin->cols -2);
+
+	int inp, currentPosInPad, maxPosInPad;
+
+	maxPosInPad = numLinesOfPad  - helpWin->lines + 2;
+	currentPosInPad = 0;
+
+	while( true ){
+		inp = wgetch(messagePad);
+		if( inp == ESC || inp == KEY_F(1) || inp == 'q' ) break;
+		switch (inp) {
+			case 'j':
+			case KEY_DOWN:
+				if( currentPosInPad < maxPosInPad ){
+					prefresh(messagePad, ++currentPosInPad, 0, helpWin->ypos +1,
+							helpWin->xpos +1, helpWin->ypos + helpWin->lines -2,
+							helpWin->xpos + helpWin->cols -2);
+				}
+				break;
+			case 'k':
+			case KEY_UP:
+				if( currentPosInPad > 0 ){
+					prefresh(messagePad, --currentPosInPad, 0, helpWin->ypos +1,
+							helpWin->xpos +1, helpWin->ypos + helpWin->lines -2,
+							helpWin->xpos + helpWin->cols -2);
+				}
+				break;
+		}
+	}
+	delwin(messagePad);
+	delete_Win(helpWin);
+}
+

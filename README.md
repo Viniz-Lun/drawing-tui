@@ -9,13 +9,15 @@ Its features are as follows:
 - Choosing any color for the text or background, using a hex value.
 
 ## The translator
-The translator creates a file named BashCodedFile, that can be interpreted by bash to be colored. To do this, run this command on your saved drawing:
+The translator creates a file named BashCodedFile (or PlainFile if combined with -p), that can be interpreted by bash to be colored. To do this, run this command on your saved drawing:
 
 `./translator YOUR_FILE.curse`
 
-This will generate the BashCodedFile in your current directory, to view the drawing simply run:
+This will generate the bash coded file (by default named BashCodedFile) in your current directory, to view the drawing simply run:
 
-``echo -e "`cat BasCodedFile`"``
+`cat BashCodedFile`
+
+It comes with a few options as to what should be included in the translated result, consult running ./translator -h.
 
 ## Dependencies
 - ncurses v6.1 or higher

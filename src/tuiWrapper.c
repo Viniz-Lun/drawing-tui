@@ -1,5 +1,6 @@
 /* tuiWrapper.c */
 #include "tuiWrapper.h"
+#include "curse-files.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +40,7 @@ void init_tui(){
 	if( has_colors() ){
 		start_color();
 	}
+	else show_message_top_left("NO-COLORS", NULL);
 	
 	defaultBorder.size = 1;
 	defaultBorder.bottom = ACS_HLINE;

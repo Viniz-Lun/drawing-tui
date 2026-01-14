@@ -3,7 +3,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "myColor.h"
-#include "custom-utils.h"
 #include "curse-files.h"
 
 #include <limits.h>
@@ -157,105 +156,205 @@ void translate(attr_t mask, Context context, int result[3], bool with_color, boo
 void codify_visual_string(char* stringToCode, int maxlen, int code[3], bool with_color){
 	if(with_color && code[0] != 6){
 		snprintf(stringToCode, maxlen, 
-			"\\e[%d;38;5;%d;48;5;%dm", 
+			"\e[%d;38;5;%d;48;5;%dm", 
 			code[0], code[1], code[2]);
 	}
 	else{
 		snprintf(stringToCode, maxlen, 
-			"\\e[%d;m", 
+			"\e[%d;m", 
 			code[0] == 6 ? 0: code[0]);
 	}
 	return;
 }
 
+void print_help(){
+	printf("Tool to translate a .curse file, formatted correctly,\n\
+and write it to a file (default output file: ./BashCodedFile).\n\
+\n\
+-h for this help\n\
+-t to truncate the drawing to only the rectangle area that has been drawn on.\n\
+-c for no color. (keeps effects like reverse, blinking, bold, etc.)\n\
+-b to preserve the background color of uncolored cells.\n\
+-p Instead of producing a BasCodedFile, produces a PlainFile, which is a plain text file.\n\
+   Such file contains only the ascii characters of the drawing.\n\
+-o To direct the output into a file of your choosing.\n\
+\n\
+To be able to visualize your converted drawing in bash, simply run:\n\
+< cat [NAME-OF-FILE-PRODUCED] >\n\
+which will intepret all the colors and empty spaces correctly (if your terminal supports it).\n\
+");
+}
 
 int main(int argc, char** argv){
-	chtype ch;
-	Context context;
-	int newCodes[3];
-	char newCodeString[64];
-	bool with_color = true;
-	int fd;
-	int newFile;
-	int filePos;
 	int opt;
-	bool toPrint = false;
-	bool withBgColor = true;
+	bool withBgColor, truncate, plain, with_color;
+	char new_file[256] = {0};
 
-	while ((opt = getopt(argc, argv, "hcb")) != -1) {
+	with_color = true;
+	withBgColor = true;
+	truncate = false;
+	plain = false;
+
+	while ((opt = getopt(argc, argv, ":o:thcbp")) != -1) {
 			switch (opt) {
 				case 'c':
 					with_color = false;
 					break;
-				case 'h':
-					printf("This program will translate a .curses file formatted correctly\n\
-and write it to a file called BashCodedFile.\n-c for no color\n-h for this help\n\
--b to preserve black background color of uncolored cells\n");
-					exit(0);
+				case 't':
+					truncate = true;
+					break;
 				case 'b':
 					withBgColor = false;
+					break;
+				case 'p':
+					plain = true;
+					break;
+				case 'o':
+					strncpy(new_file, optarg, 255);
+					break;
+				case '?':
+					puts("Unknown option");
+					exit(2);
+					break;
+				case ':':
+					puts("Missing argument for option");
+					exit(2);
+				case 'h':
+				default:
+					print_help();
+					exit(0);
 					break;
 			}
 	}
 
-	if( argc < 2 ){
-		puts("Expected name of file\n");
-		return -1;
+	if( plain ){
+		with_color = false;
+		withBgColor = false;
 	}
+
+	int fd, newFile, filePos;
 
 	fd = open(argv[optind], O_RDONLY);
 	if( fd < 0 ){
-		puts("Expected name of existing file\n");
-		return -1;
+		puts("Expected name of existing file\n\
+use: translator <FILE>\n\
+translator -h for more options");
+		exit(3);
 	}
-	newFile = open("BashCodedFile", O_TRUNC | O_WRONLY | O_CREAT, 0644);
+	
+
+	if( !plain ){
+		if( new_file[0] == 0 ) strncpy(new_file, "BashCodedFile", 255);
+	}
+	else{
+		if( new_file[0] == 0 ) strncpy(new_file, "PlainFile", 255);
+	}
+
+	newFile = open(new_file, O_TRUNC | O_WRONLY | O_CREAT, 0644);
 	if( newFile < 0 ){
 		puts("Error creating new file\n");
-		return -1;
+		exit(3);
 	}
+
+	Context context;
 
 	initialize_collection(&context.color_pairs, 126, sizeof(Pair));
 	initialize_collection(&context.custom_colors, 255, sizeof(Color));
 	
 	//assuming it is .curse file formatted correctly
 	filePos = initialize_colors_from_file(fd, 0, &context);
-
 	if( filePos < 1 ){
 		puts("Error reading colors from file");
-		return -2;
+		close(fd);
+		exit(1);
 	}
 
 	filePos = initialize_pairs_from_file(fd, filePos, &context);
 	if( filePos < 1 ){
 		puts("Error reading pairs from file");
-		return -2;
+		close(fd);
+		exit(1);
 	}
 
 	int nread;
-	attr_t cur, prev = -1;
+	attr_t curAttr, prev = -1;
+	int tr_maxline, tr_minline;
+	int tr_maxcol, tr_mincol;
+	int curCol, curLine;
+	chtype ch;
+
+	tr_maxline = 0;
+	tr_minline = 9999;
+	tr_maxcol = 0;
+	tr_mincol = 9999;
+	curCol = 0;
+	curLine = 0;
+
+	if( truncate ){
+		while( (nread = read(fd, &ch, sizeof(chtype))) > 0){
+			curAttr= ch & 0xffffff00;
+			ch = ch & A_CHARTEXT;
+
+			if( ch == '\n' ){
+				curCol = 0;
+				curLine++;
+			}
+			else{
+				if( ch != ' ' || (with_color && PAIR_NUMBER(curAttr) != 0) ){
+					if( curCol < tr_mincol ) tr_mincol = curCol;
+					if( curCol > tr_maxcol ) tr_maxcol = curCol;
+					if( curLine < tr_minline ) tr_minline = curLine;
+					if( curLine > tr_maxline ) tr_maxline = curLine;
+				}
+				curCol++;
+			}
+		}
+	}
+
+	int newCodes[3];
+	char newCodeString[64];
+	bool printableLine, printableCol;
 
 	lseek(fd, filePos, SEEK_SET);
+	curCol = 0;
+	curLine = 0;
 
 	while( (nread = read(fd, &ch, sizeof(chtype))) > 0){
-		cur = ch & 0xffffff00;
-		if( cur != prev ){
-			translate(cur, context, newCodes, with_color, withBgColor);
+		curAttr= ch & 0xffffff00;
+		ch = ch & A_CHARTEXT;
+
+		if( !plain && curAttr!= prev ){
+			translate(curAttr, context, newCodes, with_color, withBgColor);
 
 			codify_visual_string(newCodeString, sizeof(newCodeString), newCodes, with_color);
 
 			write(newFile, newCodeString, strlen(newCodeString));
 
-			prev = cur;
+			prev = curAttr;
 		}
-		ch = ch & A_CHARTEXT;
+		
+		if( !truncate ) write(newFile, &ch, sizeof(char));
+		if( truncate ){
+			printableLine = curLine >= tr_minline &&
+						 curLine <= tr_maxline;
+			printableCol = curCol >= tr_mincol &&
+						curCol <= tr_maxcol;
 
-		if( ch == '\n' ){ write(newFile, "\\n", 2); }
-		else if( ch == '\\' ) write(newFile, "\\\\", 2);
-		else write(newFile, &ch, sizeof(char));
-	}
+			if( printableLine ){
+				if( printableCol || ch == '\n' )
+					write(newFile, &ch, sizeof(char));
+			}
+			if(ch == '\n'){
+				curLine++;
+				curCol = 0;
+			}
+			else curCol++;
+		}//truncate
+	}//while
 
-	write(newFile, "\\e[0m", strlen("\\e[0m"));
+	if( !plain ) write(newFile, "\e[0m", strlen("\\[0m"));
 
 	free(context.color_pairs.colPointer);
 	free(context.custom_colors.colPointer);
+	exit(0);
 }

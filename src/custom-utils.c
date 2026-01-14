@@ -102,3 +102,27 @@ short get_hole_in_short_sequence_array(void *array, int dim, int sizeOfContainer
 
 	return dim + firstValue;
 }
+
+int calculate_num_lines_after_wraparound(char* string, int sizeOfLine){
+	int len = strlen(string);
+	int numOfLines;
+	unsigned int currentPosInLine;
+
+	// In this case currentPosInLine will never be negative, so it only a newline
+	// character '\n' counts towards the number of lines.
+	if( sizeOfLine == 0 ) sizeOfLine = -1;
+	
+	numOfLines = 1;
+	currentPosInLine = 0;
+	for( int i = 0; i < len; i++){
+		if(string[i] == '\n' || currentPosInLine == sizeOfLine){
+			numOfLines++;
+			currentPosInLine = 0;
+		}
+		else {
+			currentPosInLine++;
+		}
+	}
+	return numOfLines;
+
+}

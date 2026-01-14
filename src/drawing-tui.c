@@ -6,6 +6,7 @@
 
 #include "custom-utils.h"
 #include "myColor.h"
+#include "tuiWrapper.h"
 #include "window-drawing.h"
 #include "curse-files.h"
 
@@ -91,6 +92,14 @@ int change_color_popup(Context *app){
 	int index;
 
 	color_win = create_Win(10,10,10,30);
+
+	if( !has_colors() || COLORS == 8){
+		setup_menu_popup(color_win, "Non-colored-terminal", SIDE_CENTER, NULL, 0, 0);
+		mvwaddstr(color_win->ptr, 5, 5, "Colors not supported");
+		wgetch(color_win->ptr);
+		delete_Win(color_win);
+		return 0;
+	}
 
 	index = get_pair_index_from_pair_num(PAIR_NUMBER(app->state->chMask), app->color_pairs.colPointer, app->color_pairs.maxDim);
 	if( index < 0 ){
@@ -197,7 +206,7 @@ int handle_enter(Win *inputMenu, int optNum, Context* app){
 			wattrset(app->theDrawWin->ptr, app->state->chMask);
 			break;
 		case 3:
-			app->state->mode = (app->state->mode == STICKY)? NORMAL : STICKY;
+			app->state->mode = (app->state->mode == STICKY)? HOVER : STICKY;
 			break;
 		case 4:
 			setup_input_menu(inputMenu, defaultBorder,
@@ -344,6 +353,7 @@ int main(){
 	highlight_menu_line(popupWin, highlight, true);
 
 	app.focus = popupWin;
+	refresh();
 
 	for(;;){
 		if(app.focus == drawWin){
@@ -376,7 +386,7 @@ int main(){
 			}// switch inp
 			
 			// boolean to consider whether vim-style movement should be used ( depends on mode )
-			vimMovement = currentState.mode != INSERT && currentState.mode != SELECT;
+			vimMovement = currentState.mode != TYPING && currentState.mode != SELECT;
 
 			direction = get_direction_key_bool_vim(inp, vimMovement);
 			switch( direction ){
@@ -396,26 +406,26 @@ int main(){
 					break;
 			}// switch direction
 			 
-			action = get_mode((currentState.mode == STICKY)? NORMAL:currentState.mode, inp);
+			action = get_mode((currentState.mode == STICKY)? HOVER:currentState.mode, inp);
 			switch( action ){
 				case DELETE:
 					mvwaddchnstr(drawWin->ptr, dy, dx , &emptyChar, 1); 
 					break;
 
-				case VISUAL:
+				case PLACE:
 					mvwaddstr(drawWin->ptr, dy, dx, currentState.toPrint);
 					break;
 
-				case INSERT:
-					if( currentState.mode != INSERT ) break;
+				case TYPING:
+					if( currentState.mode != TYPING ) break;
 
 					typing = inp >= 32 && inp <=136;
 					if(typing){
 						currentState.toPrint[0] = inp;
 						currentState.toPrint[1] = 0;
+						mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
+						if( dx < drawWin->cols - 1 ) ++dx;
 					}
-					mvwaddstr(drawWin->ptr, dy, dx , currentState.toPrint);
-					if( dx < drawWin->cols - 1 ) ++dx;
 					break;
 
 				case SELECT:
@@ -426,6 +436,8 @@ int main(){
 
 					inp = wgetch(drawWin->ptr);
 					currentState.mode = prevMode;
+					if( prevMode == TYPING || prevMode == PLACE )
+						mvwaddstr(drawWin->ptr, dy, dx, currentState.toPrint);
 
 					typing = inp >= 32 && inp <=136;
 					if(typing){
@@ -434,7 +446,11 @@ int main(){
 					}
 					break;
 
-				case NORMAL:
+				case VISUAL:
+
+					break;
+
+				case HOVER:
 				default:
 					break;
 			}// switch action

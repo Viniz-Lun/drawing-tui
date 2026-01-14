@@ -10,10 +10,11 @@
 #endif
 
 typedef enum {
-	INSERT,
+	TYPING,
 	DELETE,
-	NORMAL,
+	HOVER,
 	SELECT,
+	PLACE,
 	VISUAL,
 	STICKY,
 } MODE;

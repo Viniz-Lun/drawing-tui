@@ -31,7 +31,7 @@ void init_context(Context *app, State* state){
 
 	state->toPrint[0] = '$'; 
 	state->toPrint[1] = 0;
-	state->mode = NORMAL;
+	state->mode = HOVER;
 	state->chMask = COLOR_PAIR(0);
 }
 
